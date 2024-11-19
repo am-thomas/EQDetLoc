@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from constants import PICKLISTS_PATH, EQLOCS_PATH
 import locate_utils
+import warnings
+
+# suppress specific warnings
+warnings.filterwarnings("ignore", message=".*The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.*")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser() 
