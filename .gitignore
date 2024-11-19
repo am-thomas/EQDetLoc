@@ -27,6 +27,7 @@ share/python-wheels/
 
 # ignore files in data folder
 data/
+data/eq-locations/all_eqlocations.csv
 MANIFEST
 
 # PyInstaller
