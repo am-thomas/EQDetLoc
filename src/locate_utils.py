@@ -44,7 +44,7 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
     return:
         major: float, major axis length
         minor: float, minor axis length
-        rota: float, ellipse rotation angle
+        rota: float, ellipse rotation angle (degrees anti-clockwise)
     '''
 
     # set the appropriate parameter index
