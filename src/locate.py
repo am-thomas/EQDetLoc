@@ -28,6 +28,8 @@ if __name__ == '__main__':
                         help='number of iterations for inversion')
     parser.add_argument("--uncertainty_atm", default=1, type=float,
                         help='uncertainty of arrival time pick in seconds')
+    parser.add_argument("--save_to_csv", default=True, action=argparse.BooleanOptionalAction, 
+                        help="True to save final solution to all_eqlocations.csv. Pass --no-save_to_csv if otherwise otherwise")
     args = parser.parse_args()
 
     df_picks = pd.read_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv')
@@ -101,23 +103,41 @@ if __name__ == '__main__':
         plt.show()
 
 
-    # save to csv storing all eq-locations
-    df_allloc = pd.read_csv(EQLOCS_PATH / 'all_eqlocations.csv')
-    new_row = pd.DataFrame({'reference_time_utc': reftime, 'exp_name': args.exp_name, 'pick_csv': args.csv,
-               'source_origintime': otime_utc_final, 'source_latitude_deg': loc[-1][2], 'source_longitude_deg': loc[-1][1],
-               'source_depth': loc[-1][3],'num_arrivals':n_arrivals, 'damp_factor': args.damp, 'num_iterations': args.n_its,
-               'uncertainty_atm_s': args.uncertainty_atm, 'initial_guess': str(startloc), 'invert4depth': args.invert4depth,
-               'errmajor_otime_lon': majors['otime_lon'], 'errminor_otime_lon': minors['otime_lon'], 
-               'errangle_otime_lon': rotas['otime_lon'], 'errmajor_otime_lat': majors['otime_lat'],
-               'errminor_otime_lat': minors['otime_lat'], 'errangle_otime_lat': rotas['otime_lat'],
-               'errmajor_lon_lat': majors['lon_lat'], 'errminor_lon_lat': minors['lon_lat'], 
-               'errangle_lon_lat': rotas['lon_lat'], 'errmajor_otime_depth': majors['otime_depth'],
-               'errminor_otime_depth': minors['otime_depth'], 'errangle_otime_depth': rotas['otime_depth'],
-               'errmajor_lon_depth': majors['lon_depth'], 'errminor_lon_depth': minors['lon_depth'],
-               'errangle_lon_depth': rotas['lon_depth'], 'errmajor_lat_depth': majors['lat_depth'],
-               'errminor_lat_depth': minors['lat_depth'], 'errangle_lat_depth': rotas['lat_depth']}, index=[0])
-    df_allloc_ext = pd.concat( [df_allloc, new_row], ignore_index=True)
-    df_allloc_ext.to_csv(EQLOCS_PATH / 'all_eqlocations.csv', index=False)
+    if args.save_to_csv:
+        # read in existing EQ locations csv and check if a solution already exists for the exp_name and pick_file
+        df_allloc = pd.read_csv(EQLOCS_PATH / 'all_eqlocations.csv')
+        filtered_rows = df_allloc[(df_allloc['exp_name'] == args.exp_name) & (df_allloc['pick_csv'] == args.csv)]
+        if len(filtered_rows) != 0:
+            print('')
+            print('A solution is already recorded in all_eqlocations.csv for this experiment name and pick file. If you continue, you will overwrite the existing solution. Otherwise, the existing solution will remain and the new solution will not be recorded in the csv')
+            response = input("Do you want to continue? (yes/no): ").strip().lower()
+
+            if response == 'no':
+                print('Exiting program without saving solution to csv...')
+                exit()
+            elif response == 'yes':
+                df_allloc = df_allloc[(df_allloc['exp_name'] != args.exp_name) & (df_allloc['pick_csv'] != args.csv)]
+            else:
+                print('Response other than yes was recorded. Exiting program without saving solution to csv...')
+                exit()
+
+        # save solution to csv
+        new_row = pd.DataFrame({'reference_time_utc': reftime, 'exp_name': args.exp_name, 'pick_csv': args.csv,
+                'source_origintime': otime_utc_final, 'source_latitude_deg': loc[-1][2], 'source_longitude_deg': loc[-1][1],
+                'source_depth': loc[-1][3],'num_arrivals':n_arrivals, 'damp_factor': args.damp, 'num_iterations': args.n_its,
+                'uncertainty_atm_s': args.uncertainty_atm, 'initial_guess': str(startloc), 'invert4depth': args.invert4depth,
+                'errmajor_otime_lon': majors['otime_lon'], 'errminor_otime_lon': minors['otime_lon'], 
+                'errangle_otime_lon': rotas['otime_lon'], 'errmajor_otime_lat': majors['otime_lat'],
+                'errminor_otime_lat': minors['otime_lat'], 'errangle_otime_lat': rotas['otime_lat'],
+                'errmajor_lon_lat': majors['lon_lat'], 'errminor_lon_lat': minors['lon_lat'], 
+                'errangle_lon_lat': rotas['lon_lat'], 'errmajor_otime_depth': majors['otime_depth'],
+                'errminor_otime_depth': minors['otime_depth'], 'errangle_otime_depth': rotas['otime_depth'],
+                'errmajor_lon_depth': majors['lon_depth'], 'errminor_lon_depth': minors['lon_depth'],
+                'errangle_lon_depth': rotas['lon_depth'], 'errmajor_lat_depth': majors['lat_depth'],
+                'errminor_lat_depth': minors['lat_depth'], 'errangle_lat_depth': rotas['lat_depth']}, index=[0])
+        df_allloc_ext = pd.concat( [df_allloc, new_row], ignore_index=True)
+        print('Adding new solution to all_eqlocations.csv...')
+        df_allloc_ext.to_csv(EQLOCS_PATH / 'all_eqlocations.csv', index=False)
 
     
 
