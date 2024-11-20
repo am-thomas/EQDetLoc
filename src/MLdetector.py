@@ -1,9 +1,9 @@
 import numpy as np
 import utils_process
-from obspy import UTCDateTime
+from obspy import UTCDateTime, read
 from obspy.clients.fdsn import Client
 client = Client('IRIS')
-from constants import DETECTIONS_PATH
+from constants import DETECTIONS_PATH, DATA_MSEED
 import os 
 import argparse
 import seisbench.models as sbm
@@ -61,7 +61,10 @@ def detect_signals(args):
             start_ext = start - 60 
             start_ext_str = str(start_ext)
             # get 1-component data  
-            st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
+            if args.datadirect:
+                st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{start.julday}', format='MSEED')
+            else:
+                st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
             
             # combine components to one stream
             if i == 0:
@@ -160,9 +163,9 @@ if __name__ == '__main__':
     # Station Parameters 
     parser.add_argument("--net", default='NW', type=str, help='network code')
     parser.add_argument("--sta", default='HQIL', type=str, help='station code') 
-    parser.add_argument("--loc", default='00', type=str, help='location code') 
-    parser.add_argument('-l','--chan_list', nargs='+', default=['HHZ','HH1','HH2'], help='list of channel codes')
-    parser.add_argument("--samp_rate", default=100, type=int, help='station sampling rate (Hz)') 
+    parser.add_argument("--loc", default='', type=str, help='location code') 
+    parser.add_argument('-l','--chan_list', nargs='+', default=['BHZ','BH1','BH2'], help='list of channel codes')
+    parser.add_argument("--samp_rate", default=40, type=int, help='station sampling rate (Hz)') 
 
     # Time and algorithm parameters
     parser.add_argument("--start_time", default='2015-04-01T00:00:00', type=str,
@@ -170,6 +173,10 @@ if __name__ == '__main__':
     parser.add_argument("--duration", default=60 * 60 * 24, type=float, help='duration (usually 24 h) of data to save to file')
     parser.add_argument("--days", default=7, type=int)
 
+    #Data retrieval parameters
+    parser.add_argument("--datadirect", default=True, action=argparse.BooleanOptionalAction, 
+                        help="Pass --no-datadirect to retrieve seismic data through utils_process/Obspy")
+                        
     # Machine learning model parameters 
     # See list of available models here: https://seisbench.readthedocs.io/en/stable/pages/models.html#models-integrated-into-seisbench")
     parser.add_argument("--model_name", default='EQTransformer', 
