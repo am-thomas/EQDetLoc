@@ -69,7 +69,7 @@ def detect_signals(args):
                 else:
                     st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
             except:
-                print("Could not retrieve data from ", start, "Skipping to next day...")
+                print("Could not retrieve data from ", start, ". Skipping to next day...")
                 skip = True
                 break
 
