@@ -14,6 +14,8 @@ import warnings
 
 # suppress specific warnings
 warnings.filterwarnings("ignore", message=".*Selected high corner frequency.*")
+# suppress FutureWarning globally
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 def detect_signals(args): 
@@ -100,7 +102,8 @@ def detect_signals(args):
         pick_phase_all.extend(pick_phase)
 
         start = start + (60*60*24)
-
+    print('')
+    
     # save events/detections to csv
     event_durations = np.array(event_endtimes_all) - np.array(event_starttimes_all)
     det_dict = {'trace_id': event_traceids_all, 'start_time': event_starttimes_all, 
@@ -137,12 +140,15 @@ def detect_signals(args):
                     event_Stimes[event_idx] = pick_peaktime
                     event_Smaxconf[event_idx] = pick_maxconfs_all[pick_idx]
                     found_S = True
-                elif found_P and found_S:
-                    flags[event_idx] = 'True, more than one P and S arrival detected in the event'
-                elif found_P:
-                    flags[event_idx] = 'True, more than one P arrival detected in the event'
-                elif found_S:
-                    flags[event_idx] = 'True, more than one S arrival detected in the event'
+                elif found_P or found_S:
+                    print('[FLAG] Multiple phases of the same type found in event', event_idx)
+
+                    if found_P and found_S:
+                        flags[event_idx] = 'True, more than one P and S arrival detected in the event'
+                    elif found_P:
+                        flags[event_idx] = 'True, more than one P arrival detected in the event'
+                    else:
+                        flags[event_idx] = 'True, more than one S arrival detected in the event'
 
         if found_P == False and found_S == False:
             flags[event_idx] = 'True, missing P and S arrival'
