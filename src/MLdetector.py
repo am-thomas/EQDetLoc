@@ -57,23 +57,33 @@ def detect_signals(args):
     pick_phase_all = []
     for day in range(args.days):
         print(f"Computing for day {day}, Start Time: {start}")
-
+        skip = False
         for i in range(3):
             chan =  args.chan_list[i]
             start_ext = start - 60 
             start_ext_str = str(start_ext)
-            # get 1-component data  
-            if args.datadirect:
-                st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{start.julday}', format='MSEED')
-            else:
-                st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
-            
+            # get 1-component data
+            try:  
+                if args.datadirect:
+                    st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{start.julday}', format='MSEED')
+                else:
+                    st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
+            except:
+                print("Could not retrieve data from ", start, "Skipping to next day...")
+                skip = True
+                break
+
             # combine components to one stream
             if i == 0:
                 st_3c = st_1c
             else:
                 st_3c = st_3c + st_1c
-            
+        
+        # skip to next day as needed
+        if skip:
+            start = start + (60*60*24)
+            continue
+
         # apply EQT with default parameters
         output = model.classify(st_3c, detection_threshold=0.3, P_threshold=0.1, S_threshold=0.1)
 
@@ -103,7 +113,7 @@ def detect_signals(args):
 
         start = start + (60*60*24)
     print('')
-    
+
     # save events/detections to csv
     event_durations = np.array(event_endtimes_all) - np.array(event_starttimes_all)
     det_dict = {'trace_id': event_traceids_all, 'start_time': event_starttimes_all, 
