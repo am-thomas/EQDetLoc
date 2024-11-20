@@ -22,7 +22,7 @@ if __name__ == '__main__':
                         help="True if inverting for depth. False if keeping depth fixed at 10 km")
     parser.add_argument("--ploterrormatrix", default=False, action=argparse.BooleanOptionalAction, 
                         help="True to plot error ellipses. False otherwise")
-    parser.add_argument("--damp", default=5, type=int,
+    parser.add_argument("--damp", default=5, type=float,
                         help='constant factor to multiply the damping diagonal matrix by. should be similar in order of magnitude to the standard deviation of (obs arrival time - predicted arrival time based on initial guess)')
     parser.add_argument("--n_its", default=20, type=int,
                         help='number of iterations for inversion')
