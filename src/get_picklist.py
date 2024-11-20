@@ -11,6 +11,11 @@ def get_picklist(net_stalist, start_day, days, model_name):
     df_list = []
     for net_sta in args.net_stalist:
         df = pd.read_csv(DETECTIONS_PATH / net_sta / 'combined' / f'combined_{args.model_name}_{args.start_day}_days{args.days}.csv')
+        lendf_orig = len(df)
+        df = df[df['event_maxconfidence'] >= args.detection_threshold]
+        lenddf_cut = len(df)
+        if lendf_orig != lenddf_cut:
+            print(f'Ignoring events detected in {net_sta} which have a max confidence < {args.detection_threshold}')
         df_list.append(df)
 
     # store a dictionary of [latitude[deg], longitude[deg], elevation[m]] values for each station
@@ -133,6 +138,10 @@ if __name__ == '__main__':
     parser.add_argument("--days", default=7, type=int, help='number of days in experiment. must be consistent across all stations')
     parser.add_argument("--model_name", default='EQTransformer', type=str,
                         help='name of ML model used for detection events and phases')
+    
+    # threshold parameter
+    parser.add_argument("--detection_threshold", default=0.5, type=float, 
+                        help='If the max confidence of an event is below the detection threshold, events and their associated picks will be ignored')
     
     # saving parameter
     parser.add_argument("--exp_name", default='test', type=str,
