@@ -134,8 +134,12 @@ def detect_signals(args):
                     event_Stimes[event_idx] = pick_peaktime
                     event_Smaxconf[event_idx] = pick_maxconfs_all[pick_idx]
                     found_S = True
-                elif found_P or found_S:
-                    flags[event_idx] = 'True, more than one P or S arrival detected in the event'
+                elif found_P and found_S:
+                    flags[event_idx] = 'True, more than one P and S arrival detected in the event'
+                elif found_P:
+                    flags[event_idx] = 'True, more than one P arrival detected in the event'
+                elif found_S:
+                    flags[event_idx] = 'True, more than one S arrival detected in the event'
 
         if found_P == False and found_S == False:
             flags[event_idx] = 'True, missing P and S arrival'
