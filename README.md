@@ -5,11 +5,11 @@ Detecting and Locating Earthquakes in East Africa
 * Download [Miniconda](https://docs.conda.io/en/latest/miniconda.html) for your OS 
 * Create a new conda environment with pygmt: 
 ```
-conda create -n chicago python=3.10
+conda create --name detloc --channel conda-forge pygmt python=3.10
 ```
 * Activate the new conda environment as follows: 
 ```
-conda activate chicago
+conda activate detloc
 ```
 * Install Obspy 
 ```
