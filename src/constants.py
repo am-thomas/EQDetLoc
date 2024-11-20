@@ -14,7 +14,7 @@ PICKLISTS_PATH = DATA_PATH / 'pick-lists'
 STALOCS_PATH = DATA_PATH / 'station-locations'
 VELMODEL_PATH = DATA_PATH / 'velocity-models'
 EQLOCS_PATH = DATA_PATH / 'eq-locations'
-
+DATA_MSEED = Path('/home/paula/Work_Directory/DRIAR_DATA/February2023/MSEED')
 # Contants 
 NUM_SECS_DAY = 86400  # 60*60*24 
 NUM_SECS_HOUR = 3600  # 60*60 
