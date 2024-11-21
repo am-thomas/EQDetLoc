@@ -1,6 +1,7 @@
 from constants import DETECTIONS_PATH, NUM_SECS_DAY, PICKLISTS_PATH, STALOCS_PATH
 import argparse
 import pandas as pd
+import numpy as np
 import os
 import sys
 from datetime import datetime
@@ -107,7 +108,8 @@ def get_picklist(net_stalist, start_day, days, model_name):
                 pick_phases.append(phase)
 
         len_picks_1event = len(pick_times)
-        if len_picks_1event > 2:
+        unique_stas = np.unique(station_list)
+        if len_picks_1event > 2 and len(unique_stas) >= args.minstations:
             reftime_col = [ref_time] * len_picks_1event
             event_df = pd.DataFrame({'reftime_utc': reftime_col, 'station':station_list, 'station_latitude_deg': station_latitudes, 
                                      'station_longitude_deg': station_longitudes, 'station_elevation_m': station_elevations, 
@@ -139,9 +141,11 @@ if __name__ == '__main__':
     parser.add_argument("--model_name", default='EQTransformer', type=str,
                         help='name of ML model used for detection events and phases')
     
-    # threshold parameter
+    # threshold parameters
     parser.add_argument("--detection_threshold", default=0.5, type=float, 
                         help='If the max confidence of an event is below the detection threshold, events and their associated picks will be ignored')
+    parser.add_argument("--minstations", default=5, type=int,
+                         help='If the number of stations with phase arrivals for a reference time is below this value, a picklist csv will not be created.')
     
     # saving parameter
     parser.add_argument("--exp_name", default='test', type=str,
