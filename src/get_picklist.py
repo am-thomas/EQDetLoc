@@ -64,9 +64,13 @@ def get_picklist(net_stalist, start_day, days, model_name):
     # create a merged dataframe of phase arrivals that are within 10 minutes of the reference times
     merged_df = df_reftimes
     for idx, net_sta in enumerate(new_netsta_list):
+        save_event_times = True
         for phase in ['P', 'S']:
             df = df_list[idx]
-            df = df[[f'{phase}_time', f'{phase}_maxconfidence']]
+            if save_event_times:
+                df = df[['start_time', 'end_time', f'{phase}_time', f'{phase}_maxconfidence']]   #store only one event start_time and end_time column
+            else:
+                df = df[[f'{phase}_time', f'{phase}_maxconfidence']]
             df = df.sort_values(by=f'{phase}_time')
             df[f'{phase}_time'] = pd.to_datetime(df[f'{phase}_time'])
             
@@ -74,15 +78,22 @@ def get_picklist(net_stalist, start_day, days, model_name):
             df = df.dropna(subset=[f'{phase}_time'])
             if len(df) == 0:
                 continue 
-
+            
             # rename columns to specify the staton
-            df.rename(columns={f'{phase}_time': f'{net_sta}_{phase}_time', 
-                      f'{phase}_maxconfidence': f'{net_sta}_{phase}_maxconfidence'}, inplace=True)
+            if save_event_times:
+                df.rename(columns={'start_time': f'{net_sta}_event_start',
+                                'end_time': f'{net_sta}_event_end', f'{phase}_time': f'{net_sta}_{phase}_time', 
+                                f'{phase}_maxconfidence': f'{net_sta}_{phase}_maxconfidence'}, inplace=True)
+            else:
+                df.rename(columns={f'{phase}_time': f'{net_sta}_{phase}_time', 
+                                f'{phase}_maxconfidence': f'{net_sta}_{phase}_maxconfidence'}, inplace=True)
             
             merged_df = pd.merge_asof(merged_df, df, 
                         left_on=f'ref_time', 
                         right_on=f'{net_sta}_{phase}_time', 
                         tolerance=pd.Timedelta(seconds=tolerance_s))
+            save_event_times = False
+            
     
     # drop indices and rows with all NaN values 
     merged_df_cols = merged_df.columns
@@ -97,12 +108,14 @@ def get_picklist(net_stalist, start_day, days, model_name):
         station_latitudes = []
         station_longitudes = []
         station_elevations = []
+        event_starts = []
+        event_ends = []
         pick_times = []
         pick_relativetimes = []
         pick_maxconfidences = []
         pick_phases = []
         for col in merged_df_cols[1:]:
-            if col.endswith('time') and pd.notna( merged_df.loc[idx, col] ):
+            if (col.endswith('P_time') or col.endswith('S_time')) and pd.notna( merged_df.loc[idx, col] ):
                 colsplit = col.split('_')
                 net_sta = f'{colsplit[0]}_{colsplit[1]}'
                 station_list.append(net_sta)
@@ -110,6 +123,8 @@ def get_picklist(net_stalist, start_day, days, model_name):
                 station_longitudes.append( stacoords[net_sta][1] )
                 station_elevations.append( stacoords[net_sta][2] )
 
+                event_starts.append( merged_df.loc[idx, f'{net_sta}_event_start'] )
+                event_ends.append( merged_df.loc[idx, f'{net_sta}_event_end'] )
                 phase = colsplit[2]
                 pick_time = merged_df.loc[idx, f'{net_sta}_{phase}_time'] 
                 pick_times.append( pick_time)
@@ -124,7 +139,8 @@ def get_picklist(net_stalist, start_day, days, model_name):
             event_df = pd.DataFrame({'reftime_utc': reftime_col, 'station':station_list, 'station_latitude_deg': station_latitudes, 
                                      'station_longitude_deg': station_longitudes, 'station_elevation_m': station_elevations, 
                                      'arrivaltime_utc': pick_times, 'relative_arrivaltime_s':pick_relativetimes, 
-                          'phase': pick_phases, 'pick_confidence': pick_maxconfidences})
+                                     'phase': pick_phases, 'pick_confidence': pick_maxconfidences,
+                                     'event_start_utc': event_starts, 'event_end_utc': event_ends})
             reftime_title = str(ref_time)[:19].replace(':','-').replace(' ','T')
             event_df.to_csv(EXP_PATH / f'picklist_{reftime_title}.csv', index=False)
             saved_refs.append(ref_time)
