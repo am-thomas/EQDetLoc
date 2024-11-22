@@ -45,9 +45,10 @@ if __name__ == '__main__':
             else:
                 st_1c = get_rawdata(net, sta, '00', chan, str(plot_start), duration, samp_rate=100)
             times = st_1c[0].times()
-            ax[j].plot(times, st_1c[0].data, color='black')
+            ax[j].plot(times, st_1c[0].data, color='black', label=chan)
             ax[j].axvline(pick_time_rel)
             ax[j].set_xlim([times[0], times[-1]])
+            ax[j].legend(loc='upper left')
 
         ax[1].set_ylabel('Counts')
         ax[2].set_xlabel('Time [s]')
