@@ -15,14 +15,14 @@ if __name__ == '__main__':
                         help='name of csv (e.g. picklist_2024-07-15T08-00-00) that contains the desired picks')
 
     # data retrieval parameters
-    parser.add_argument("--datadirect", default=False, action=argparse.BooleanOptionalAction, 
+    parser.add_argument("--datadirect", default=True, action=argparse.BooleanOptionalAction, 
                         help="Pass --no-datadirect to retrieve seismic data through utils_process/Obspy")
     args = parser.parse_args()
 
     EXP_PATH = PICKLISTS_PATH / args.exp_name
     df_picks = pd.read_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv')
     
-    chan_list = ['HHZ', 'HH1', 'HH2']
+    chan_list = ['BHZ', 'BH1', 'BH2']
     loc = ''
     for i, pick_time in enumerate(df_picks['arrivaltime_utc']):
         netsta_split = df_picks.loc[i, 'station'].split('_')
