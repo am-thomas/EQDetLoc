@@ -1,9 +1,10 @@
 import argparse
-from constants import PICKLISTS_PATH, DATA_MSEED
+from constants import PICKLISTS_PATH, DATA_MSEED, STALOCS_PATH
 import pandas as pd
 from obspy import UTCDateTime, read
 from utils_process import get_rawdata
 import matplotlib.pyplot as plt
+import numpy as np
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser() 
@@ -19,15 +20,34 @@ if __name__ == '__main__':
                         help="Pass --no-datadirect to retrieve seismic data through utils_process/Obspy")
     args = parser.parse_args()
 
+    # read in picks csv
     EXP_PATH = PICKLISTS_PATH / args.exp_name
     df_picks = pd.read_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv')
     
-    chan_list = ['BHZ', 'BH1', 'BH2']
-    loc = ''
+    # store dictionary of station locations and channel lists
+    sta_dict = dict()
+    stalocs_df = pd.read_csv(STALOCS_PATH / 'all_stations_locations.csv')
+    netsta_list = np.unique(df_picks['station'].to_numpy())
+    for net_sta in netsta_list:
+        net_sta_split = net_sta.split('_')
+        net = net_sta_split[0]
+        sta = net_sta_split[1]
+
+        row = stalocs_df[(stalocs_df['network'] == net) & (stalocs_df['station'] == sta)]
+        loc = row['location'].tolist()[0]
+        chan_list = row['chan_list'].tolist()[0]
+        chan_list = chan_list.split('.')
+        sta_dict[net_sta] = [loc, chan_list]
+
+    # iterate through each pick and plot 5 seconds before event start time and 5 seconds after end time
     for i, pick_time in enumerate(df_picks['arrivaltime_utc']):
-        netsta_split = df_picks.loc[i, 'station'].split('_')
+        net_sta = df_picks.loc[i, 'station']
+        netsta_split = net_sta.split('_')
         net = netsta_split[0]
         sta = netsta_split[1]
+        loc = sta_dict[net_sta][0]
+        chan_list = sta_dict[net_sta][1]
+
         event_start_utc = UTCDateTime( df_picks.loc[i, 'event_start_utc'])
         event_end_utc = UTCDateTime( df_picks.loc[i, 'event_end_utc'])
 
