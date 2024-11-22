@@ -135,6 +135,8 @@ def detect_signals(args):
     event_Stimes = [np.nan] * num_events
     event_Pmaxconf = [np.nan] * num_events
     event_Smaxconf = [np.nan] * num_events
+    additional_Ptimes = [[]] * num_events
+    additional_Stimes = [[]] * num_events
     for event_idx in range(num_events):
         found_P = False
         found_S = False
@@ -152,13 +154,18 @@ def detect_signals(args):
                     found_S = True
                 elif found_P or found_S:
                     print('[FLAG] Multiple phases of the same type found in event', event_idx)
-
                     if found_P and found_S:
                         flags[event_idx] = 'True, more than one P and S arrival detected in the event'
                     elif found_P:
                         flags[event_idx] = 'True, more than one P arrival detected in the event'
                     else:
                         flags[event_idx] = 'True, more than one S arrival detected in the event'
+                    
+                    # add additional arrival times to list
+                    if pick_phase == 'P':
+                        additional_Ptimes[event_idx].append(str(pick_peaktime)[:19].replace(' ','T'))
+                    else:
+                        additional_Stimes[event_idx].append(str(pick_peaktime)[:19].replace(' ','T'))
 
         if found_P == False and found_S == False:
             flags[event_idx] = 'True, missing P and S arrival'
@@ -168,7 +175,8 @@ def detect_signals(args):
                     'end_time': event_endtimes_all, 'duration': event_durations, 
                     'event_maxconfidence': event_maxconfs_all, 'P_time': event_Ptimes,
                     'P_maxconfidence': event_Pmaxconf, 'S_time': event_Stimes,
-                    'S_maxconfidence': event_Smaxconf, 'flag': flags}
+                    'S_maxconfidence': event_Smaxconf, 'flag': flags, 
+                    'additional_Ps': additional_Ptimes, 'additional_Ss': additional_Stimes}
     combined_df = pd.DataFrame(comb_dict)
     combined_df.to_csv(COMB_PATH / f'combined_{args.model_name}_{args.start_time[:10]}_days{args.days}.csv',index=False)
 
