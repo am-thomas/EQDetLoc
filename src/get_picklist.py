@@ -10,19 +10,29 @@ def get_picklist(net_stalist, start_day, days, model_name):
 
     # get and store combined csvs for each station
     df_list = []
-    for net_sta in args.net_stalist:
-        df = pd.read_csv(DETECTIONS_PATH / net_sta / 'combined' / f'combined_{args.model_name}_{args.start_day}_days{args.days}.csv')
-        lendf_orig = len(df)
-        df = df[df['event_maxconfidence'] >= args.detection_threshold]
-        lenddf_cut = len(df)
-        if lendf_orig != lenddf_cut:
-            print(f'Ignoring events detected in {net_sta} which have a max confidence < {args.detection_threshold}')
-        df_list.append(df)
+    new_netsta_list = []
+    for net_sta in net_stalist:
+        try:
+            df = pd.read_csv(DETECTIONS_PATH / net_sta / 'combined' / f'combined_{model_name}_{args.start_day}_days{args.days}.csv')
+            lendf_orig = len(df)
+            df = df[df['event_maxconfidence'] >= args.detection_threshold]
+            lenddf_cut = len(df)
+            if lendf_orig != lenddf_cut:
+                print(f'Ignoring events detected in {net_sta} which have a max confidence < {args.detection_threshold}')
+            df_list.append(df)
+            new_netsta_list.append(net_sta)
+        except FileNotFoundError:
+            response = input(f"No combined csv file found for {net_sta}. Do you want to skip this station and continue? (yes/no): ").strip().lower()
+            if response == 'no':
+                print('Exiting program')
+                exit()
+            else:
+                continue
 
     # store a dictionary of [latitude[deg], longitude[deg], elevation[m]] values for each station
     stacoords = dict()
     stalocs_df = pd.read_csv(STALOCS_PATH / 'all_stations_locations.csv')
-    for net_sta in args.net_stalist:
+    for net_sta in new_netsta_list:
         net_sta_split = net_sta.split('_')
         net = net_sta_split[0]
         sta = net_sta_split[1]
@@ -53,7 +63,7 @@ def get_picklist(net_stalist, start_day, days, model_name):
 
     # create a merged dataframe of phase arrivals that are within 10 minutes of the reference times
     merged_df = df_reftimes
-    for idx, net_sta in enumerate(net_stalist):
+    for idx, net_sta in enumerate(new_netsta_list):
         for phase in ['P', 'S']:
             df = df_list[idx]
             df = df[[f'{phase}_time', f'{phase}_maxconfidence']]
