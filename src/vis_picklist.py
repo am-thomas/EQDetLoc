@@ -46,6 +46,9 @@ if __name__ == '__main__':
         net = netsta_split[0]
         sta = netsta_split[1]
         loc = sta_dict[net_sta][0]
+        if np.isnan(loc):
+            loc = ''
+            
         chan_list = sta_dict[net_sta][1]
 
         event_start_utc = UTCDateTime( df_picks.loc[i, 'event_start_utc'])
