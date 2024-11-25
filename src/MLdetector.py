@@ -135,8 +135,8 @@ def detect_signals(args):
     event_Stimes = [np.nan] * num_events
     event_Pmaxconf = [np.nan] * num_events
     event_Smaxconf = [np.nan] * num_events
-    additional_Ptimes = [[]] * num_events
-    additional_Stimes = [[]] * num_events
+    additional_Ptimes = [[] for _ in range(num_events)]
+    additional_Stimes = [[] for _ in range(num_events)]
     for event_idx in range(num_events):
         found_P = False
         found_S = False
