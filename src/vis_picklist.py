@@ -46,9 +46,6 @@ if __name__ == '__main__':
         net = netsta_split[0]
         sta = netsta_split[1]
         loc = sta_dict[net_sta][0]
-        if np.isnan(loc):
-            loc = ''
-            
         chan_list = sta_dict[net_sta][1]
 
         event_start_utc = UTCDateTime( df_picks.loc[i, 'event_start_utc'])
@@ -58,7 +55,7 @@ if __name__ == '__main__':
         plot_end = event_end_utc + 5
         duration = plot_end - plot_start
 
-        pick_time_rel = UTCDateTime(pick_time[:19]) - plot_start
+        pick_time_rel = UTCDateTime(pick_time[:26]) - plot_start
 
         fig, ax = plt.subplots(3,1)
         for j, chan in enumerate(chan_list):
@@ -77,7 +74,7 @@ if __name__ == '__main__':
         ax[2].set_xlabel('Time [s]')
 
         phase = df_picks.loc[i, 'phase']
-        ax[0].set_title(f'{phase} pick: {pick_time[:19]}, plot duration: {duration}')
+        ax[0].set_title(f'{sta} {phase} pick, plot start time: {str(plot_start)[:23]}, duration: {duration} s')
         plt.tight_layout()
         plt.show()
 
