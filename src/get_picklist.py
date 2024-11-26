@@ -136,11 +136,12 @@ def get_picklist(net_stalist, start_day, days, model_name):
         unique_stas = np.unique(station_list)
         if len_picks_1event > 2 and len(unique_stas) >= args.minstations:
             reftime_col = [ref_time] * len_picks_1event
+            flags = [False] * len_picks_1event
             event_df = pd.DataFrame({'reftime_utc': reftime_col, 'station':station_list, 'station_latitude_deg': station_latitudes, 
                                      'station_longitude_deg': station_longitudes, 'station_elevation_m': station_elevations, 
                                      'arrivaltime_utc': pick_times, 'relative_arrivaltime_s':pick_relativetimes, 
                                      'phase': pick_phases, 'pick_confidence': pick_maxconfidences,
-                                     'event_start_utc': event_starts, 'event_end_utc': event_ends})
+                                     'event_start_utc': event_starts, 'event_end_utc': event_ends, 'flag':flags})
             reftime_title = str(ref_time)[:19].replace(':','-').replace(' ','T')
             event_df.to_csv(EXP_PATH / f'picklist_{reftime_title}.csv', index=False)
             saved_refs.append(ref_time)
