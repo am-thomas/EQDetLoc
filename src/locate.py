@@ -33,6 +33,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     df_picks = pd.read_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv')
+    print(len(df_picks))
+    df_picks = df_picks[df_picks['flag']==False]
+    print(len(df_picks))
     n_arrivals,reftime,sta,ylat,xlon,elv,atm,phases = locate_utils.readpickscsv(df_picks)
     print('reference time:', reftime)
 
