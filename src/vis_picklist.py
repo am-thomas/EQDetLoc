@@ -23,6 +23,8 @@ if __name__ == '__main__':
     # read in picks csv
     EXP_PATH = PICKLISTS_PATH / args.exp_name
     df_picks = pd.read_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv')
+    df_picks = df_picks[df_picks['flag']==False]
+    df_picks.reset_index(inplace=True)
     
     # store dictionary of station locations and channel lists
     sta_dict = dict()
