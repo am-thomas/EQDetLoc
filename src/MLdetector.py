@@ -65,7 +65,9 @@ def detect_signals(args):
             # get 1-component data
             try:  
                 if args.datadirect:
-                    st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{start.julday}', format='MSEED')
+                    julday = start.julday
+                    julday_str = f'{julday}' if julday >= 100 else f'0{julday}'
+                    st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{julday_str}', format='MSEED')
                 else:
                     st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
             except:
