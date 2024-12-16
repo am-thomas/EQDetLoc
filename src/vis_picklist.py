@@ -60,7 +60,7 @@ if __name__ == '__main__':
         plot_end = event_end_utc + 5
         duration = plot_end - plot_start
 
-        pick_time_rel = UTCDateTime(pick_time[:26]) - plot_start
+        pick_time_rel = UTCDateTime(pick_time.split('+')[0]) - plot_start
 
         fig, ax = plt.subplots(3,1)
         for j, chan in enumerate(chan_list):
