@@ -6,6 +6,7 @@ from matplotlib.patches import Ellipse
 from constants import PICKLISTS_PATH, EQLOCS_PATH
 import locate_utils
 import warnings
+import os
 
 # suppress specific warnings
 warnings.filterwarnings("ignore", message=".*The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.*")
@@ -109,8 +110,8 @@ if __name__ == '__main__':
     if args.save_to_csv:
         # read in existing EQ locations csv and check if a solution already exists for the exp_name and pick_file
         df_allloc = pd.read_csv(EQLOCS_PATH / 'all_eqlocations.csv')
-        filtered_rows = df_allloc[(df_allloc['exp_name'] == args.exp_name) & (df_allloc['pick_csv'] == args.csv)]
-        if len(filtered_rows) != 0:
+        match = (df_allloc['exp_name'] == args.exp_name) & (df_allloc['pick_csv'] == args.csv)
+        if match.any():
             print('')
             print('A solution is already recorded in all_eqlocations.csv for this experiment name and pick file. If you continue, you will overwrite the existing solution. Otherwise, the existing solution will remain and the new solution will not be recorded in the csv')
             response = input("Do you want to continue? (yes/no): ").strip().lower()
@@ -119,7 +120,7 @@ if __name__ == '__main__':
                 print('Exiting program without saving solution to csv...')
                 exit()
             elif response == 'yes':
-                df_allloc = df_allloc[(df_allloc['exp_name'] != args.exp_name) & (df_allloc['pick_csv'] != args.csv)]
+                df_allloc = df_allloc[~match]
             else:
                 print('Response other than yes was recorded. Exiting program without saving solution to csv...')
                 exit()
@@ -140,6 +141,7 @@ if __name__ == '__main__':
                 'errminor_lat_depth': minors['lat_depth'], 'errangle_lat_depth': rotas['lat_depth']}, index=[0])
         df_allloc_ext = pd.concat( [df_allloc, new_row], ignore_index=True)
         print('Adding new solution to all_eqlocations.csv...')
+        os.rename(EQLOCS_PATH / 'all_eqlocations.csv', EQLOCS_PATH / 'all_eqlocations_beforeupdate.csv')
         df_allloc_ext.to_csv(EQLOCS_PATH / 'all_eqlocations.csv', index=False)
 
     
