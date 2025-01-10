@@ -55,6 +55,7 @@ if __name__ == '__main__':
 
         event_start_utc = UTCDateTime( df_picks.loc[i, 'event_start_utc'])
         event_end_utc = UTCDateTime( df_picks.loc[i, 'event_end_utc'])
+        pick_confidence = df_picks.loc[i, 'pick_confidence']
 
         plot_start = event_start_utc - 5
         plot_end = event_end_utc + 5
@@ -79,7 +80,7 @@ if __name__ == '__main__':
         ax[2].set_xlabel('Time [s]')
 
         phase = df_picks.loc[i, 'phase']
-        ax[0].set_title(f'{sta} {phase} pick, plot start time: {str(plot_start)[:23]}, duration: {duration} s')
+        ax[0].set_title(f'{sta} {phase} pick, plot start: {str(plot_start)[:23]},\n duration: {duration} s, confidence: {pick_confidence:.3f}', fontsize=12)
         plt.tight_layout()
         plt.show()
 
