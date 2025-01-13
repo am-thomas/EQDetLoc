@@ -63,6 +63,7 @@ if __name__ == '__main__':
 
         pick_time_rel = UTCDateTime(pick_time.split('+')[0]) - plot_start
 
+        # plot unfiltered waveforms
         fig, ax = plt.subplots(3,1)
         for j, chan in enumerate(chan_list):
             if args.datadirect:
@@ -75,14 +76,31 @@ if __name__ == '__main__':
             ax[j].axvline(pick_time_rel)
             ax[j].set_xlim([times[0], times[-1]])
             ax[j].legend(loc='upper left')
-
+            if j == 0:
+                st_3c = st_1c
+            else:
+                st_3c = st_3c + st_1c
         ax[1].set_ylabel('Counts')
         ax[2].set_xlabel('Time [s]')
-
         phase = df_picks.loc[i, 'phase']
         ax[0].set_title(f'{sta} {phase} pick, plot start: {str(plot_start)[:23]},\n duration: {duration} s, confidence: {pick_confidence:.3f}', fontsize=12)
         plt.tight_layout()
         plt.show()
+
+        # plot filtered waveforms
+        st_3c.filter('bandpass', freqmin=0.5, freqmax=5, zerophase=True)
+        fig, ax = plt.subplots(3,1)
+        for j, chan in enumerate(chan_list):
+            ax[j].plot(times, st_3c.select(channel=chan)[0].data, color='black', label=chan)
+            ax[j].axvline(pick_time_rel)
+            ax[j].set_xlim([times[0], times[-1]])
+            ax[j].legend(loc='upper left')
+        ax[1].set_ylabel('Counts')
+        ax[2].set_xlabel('Time [s]')
+        ax[0].set_title(f'0.5 - 5 Hz Filtered\n{sta} {phase} pick, plot start: {str(plot_start)[:23]},\n duration: {duration} s, confidence: {pick_confidence:.3f}', fontsize=12)
+        plt.tight_layout()
+        plt.show()
+
 
 
     
