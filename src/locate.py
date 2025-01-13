@@ -23,20 +23,16 @@ if __name__ == '__main__':
                         help="True if inverting for depth. False if keeping depth fixed at 10 km")
     parser.add_argument("--ploterrormatrix", default=False, action=argparse.BooleanOptionalAction, 
                         help="True to plot error ellipses. False otherwise")
-    parser.add_argument("--damp", default=5, type=float,
-                        help='constant factor to multiply the damping diagonal matrix by. should be similar in order of magnitude to the standard deviation of (obs arrival time - predicted arrival time based on initial guess)')
-    parser.add_argument("--n_its", default=20, type=int,
-                        help='number of iterations for inversion')
-    parser.add_argument("--uncertainty_atm", default=1, type=float,
+    parser.add_argument("--damp", default=0.2, type=float,
+                        help='constant factor to multiply the damping diagonal matrix by. should be similar in order of magnitude to the inverse of the standard deviation of (obs arrival time - predicted arrival time based on initial guess)')
+    parser.add_argument("--uncertainty_atm", default=0.5, type=float,
                         help='uncertainty of arrival time pick in seconds')
     parser.add_argument("--save_to_csv", default=True, action=argparse.BooleanOptionalAction, 
                         help="True to save final solution to all_eqlocations.csv. Pass --no-save_to_csv if otherwise otherwise")
     args = parser.parse_args()
 
     df_picks = pd.read_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv')
-    print(len(df_picks))
     df_picks = df_picks[df_picks['flag']==False]
-    print(len(df_picks))
     n_arrivals,reftime,sta,ylat,xlon,elv,atm,phases = locate_utils.readpickscsv(df_picks)
     print('reference time:', reftime)
 
@@ -54,8 +50,8 @@ if __name__ == '__main__':
     print('')
 
     # perform least squares inversion
-    loc, covm, otime_utc_final = locate_utils.locatequake(n_arrivals,reftime,ylat,xlon,elv,atm,phases,'IASP91.csv',startloc,
-                                         args.invert4depth,damp_factor=args.damp,nits=args.n_its,sigmaT=args.uncertainty_atm,annotate=False)
+    loc, covm, otime_utc_final, k, converg_crit, percchange_converg = locate_utils.locatequake(n_arrivals,reftime,ylat,xlon,elv,atm,phases,'IASP91.csv',startloc,
+                                         args.invert4depth,damp_factor=args.damp,sigmaT=args.uncertainty_atm,annotate=False)
     
     # compute and plot error ellipse matrix
     if args.ploterrormatrix:
@@ -128,8 +124,9 @@ if __name__ == '__main__':
         # save solution to csv
         new_row = pd.DataFrame({'reference_time_utc': reftime, 'exp_name': args.exp_name, 'pick_csv': args.csv,
                 'source_origintime': otime_utc_final, 'source_latitude_deg': loc[-1][2], 'source_longitude_deg': loc[-1][1],
-                'source_depth': loc[-1][3],'num_arrivals':n_arrivals, 'damp_factor': args.damp, 'num_iterations': args.n_its,
+                'source_depth': loc[-1][3],'num_arrivals':n_arrivals, 'damp_factor': args.damp,
                 'uncertainty_atm_s': args.uncertainty_atm, 'initial_guess': str(startloc), 'invert4depth': args.invert4depth,
+                'num_iterations': k, 'convergence_criterion': converg_crit, 'criterionchange_percent': percchange_converg,
                 'errmajor_otime_lon': majors['otime_lon'], 'errminor_otime_lon': minors['otime_lon'], 
                 'errangle_otime_lon': rotas['otime_lon'], 'errmajor_otime_lat': majors['otime_lat'],
                 'errminor_otime_lat': minors['otime_lat'], 'errangle_otime_lat': rotas['otime_lat'],
