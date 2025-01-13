@@ -191,7 +191,7 @@ def get_damp(lbda, ias_deg,  Zbool, alpha=5.8):
     return damping
 
 
-def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,Zbool,damp_factor,nits=6,sigmaT=1.0,annotate=True):
+def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,Zbool,damp_factor,sigmaT=1.0,annotate=True):
     '''
     Function that performs inversion on a given list of arrival P/S times
     param:
@@ -207,7 +207,6 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
                 (2) longitude in km,  (3) latitude in km, and (4) depth in km
         Zbool: Bool, True to perform inversion for depth or False to keep depth fixed at initial guess
         damp_factor: integer, constant factor to multiply to damping matrix
-        nits: int, number of interations to update guesses
         sigmaT: float, uncertainty (s) of arrival times 
         annotate: Bool, True to print/plot guesses at each iterations, False if otherwise
     returns:
@@ -238,7 +237,11 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
 
     # iterative counter to solve for new model parameters
     loc = [startloc]
-    for k in np.arange(nits):
+    converg_threshold = 2*sigmaT
+    converg_crit = 1e9
+    percchange_converg = 1e9
+    k = 0 
+    while converg_crit > converg_threshold and percchange_converg > 0.005 and k < 100:
         # compute data vectors of residual times
         tq,lonq,latq,hq = loc[k]
         grc_deltas, azs = get_dists_azimuths(latq, lonq, lat_sta, lon_sta)
@@ -267,10 +270,13 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         # compute data vectors
         elv_correc = elv/(surface_vels * np.cos(np.radians(ias_deg)))       # time to travel the elevation of the station
         d = atm - elv_correc - tq - t_ts
-        # if k ==0:
-        #     plt.hist(d)
-        #     plt.xlabel('travel time misft [s]')
-        #     plt.show()
+        if k ==0:
+            std_initial = np.std(d)
+            plt.hist(d)
+            plt.xlabel('travel time misfit between initial guess and observation [s]')
+            plt.ylabel('number of observations')
+            plt.title(f'stdev: {std_initial}')
+            plt.show()
         
         # solve for model paramter vectors 
         rowt = np.ones(n)
@@ -295,6 +301,12 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         GTGm1 = np.linalg.inv(GTG+damp)
         Gmg = np.dot(GTGm1,GT)
         m = np.dot(Gmg,d)
+
+        # compute the convergence criterion and store percent change
+        diff_Gm_d = np.dot(G, m) - d
+        new_converg_crit = np.sqrt(np.sum(diff_Gm_d**2) / len(d))
+        percchange_converg = (np.abs(new_converg_crit - converg_crit) / converg_crit) * 100
+        converg_crit = new_converg_crit
         
         # print updated m vector
         if Zbool:
@@ -324,16 +336,32 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
 
         # add new location to list of guesses
         loc = loc + [newloc]
+        k = k + 1
+        
+    if k == 100:
+        print('Convergence was not reached after 100 iterations')
+        response = input("Do you want to continue and save the solution at the 100th iteration (y/n): ").strip().lower()
 
-    print( 'final solution ')
-    print( 'origin time after reference time (s)', loc[-1][0])
+        if response == 'n':
+            print('Exiting program...')
+            exit()
+        elif response == 'y':
+            print('')
+        else:
+            print('Response other than yes was recorded. Exiting program...')
+            exit()
+
+    print( f'final solution after {k} iterations')
+    print( 'convergence criterion:', converg_crit)
+    print( f'criterion percent diff from the {k-1}-th iteration: {percchange_converg}')
+    print( 'origin time after reference time (s):', loc[-1][0])
     otime_utc_final = datetime.fromisoformat(reftime) + timedelta(seconds=loc[-1][0])
-    print('origin time (utc)', otime_utc_final)
-    print( 'lat and lon (degrees) ',loc[-1][2],loc[-1][1])
-    print( 'depth (km) ',loc[-1][3])
+    print('origin time (utc):', otime_utc_final)
+    print( 'lat and lon (degrees): ',loc[-1][2],loc[-1][1])
+    print( 'depth (km): ',loc[-1][3])
 
     # compute covariance matrix
     varT = sigmaT**2
     covm = varT*GTGm1 
    
-    return loc, covm, otime_utc_final
+    return loc, covm, otime_utc_final, k, converg_crit, percchange_converg
