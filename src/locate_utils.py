@@ -76,8 +76,8 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
     # total length of axes (diameters): 
     # twice the standar deviation for the ~68.3% confidence region, four times the s.d. for 95.4%, 
     # six times the s.d. for 98.9% (in 2D)
-    major = 6*np.sqrt(w[0])
-    minor = 6*np.sqrt(w[1])
+    major = 4*np.sqrt(w[0])
+    minor = 4*np.sqrt(w[1])
     rota = np.degrees(np.arctan2(v[1,0],v[0,0]))
 
     if annotate:
