@@ -1,3 +1,9 @@
+# Program to apply a machine learning model (via Seisbench) on single-station data
+# detections and picks are saved in constants.DETECTIONS_PATH 
+#
+# Example to apply EQTransformer on 3 days of station N4.M44A data:
+# python MLdetector.py --net N4 --sta M44A --loc 00 --chan_list HHZ HH1 HH2 --start_time 2024-07-14T00:00:00 --days 3
+
 import numpy as np
 import utils_process
 from obspy import UTCDateTime, read
@@ -43,8 +49,7 @@ def detect_signals(args):
 
     # apply Seisbench model to 3-component data
     start = UTCDateTime(args.start_time)
-    duration_ext = args.duration + 120
-
+    duration_ext = args.duration + 120   #retrieve 2 extra minutes of data
     event_traceids_all = []
     event_starttimes_all = []
     event_endtimes_all = []
@@ -63,12 +68,13 @@ def detect_signals(args):
             start_ext = start - 60 
             start_ext_str = str(start_ext)
             # get 1-component data
-            try:  
+            try:
+                # retrieve directly from mseed files in folder constants.DATA_MSEED (specific to local computer)  
                 if args.datadirect:
                     julday = start.julday
                     julday_str = f'{julday}' if julday >= 100 else f'0{julday}'
                     st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{julday_str}', format='MSEED')
-                else:
+                else: # function to check for locally saved data and retrieve from EarthScope Web Services if it does not exist 
                     st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
             except:
                 print("Could not retrieve data from ", start, ". Skipping to next day...")
@@ -81,7 +87,7 @@ def detect_signals(args):
             else:
                 st_3c = st_3c + st_1c
         
-        # skip to next day as needed
+        # skip to next day if one component's data could not be retrieved
         if skip:
             start = start + (60*60*24)
             continue
@@ -113,6 +119,7 @@ def detect_signals(args):
         pick_maxconfs_all.extend(pick_maxconf)
         pick_phase_all.extend(pick_phase)
 
+        # update to the next day
         start = start + (60*60*24)
     print('')
 
@@ -124,27 +131,29 @@ def detect_signals(args):
     det_df.to_csv(EVENTS_PATH / f'detections_{args.model_name}_{args.start_time[:10]}_days{args.days}.csv',index=False)
 
     # save picks to csv
+    # note: picks are not specifically associated with a detection, this association is done in the next code block
     pick_dict = {'trace_id': pick_traceids_all, 'start_time': pick_starttimes_all, 
                 'end_time': pick_endtimes_all, 'peak_time': pick_peaktimes_all, 
                 'max_confidence': pick_maxconfs_all, 'phase': pick_phase_all}
     pick_df = pd.DataFrame.from_dict(pick_dict)
     pick_df.to_csv(PICKS_PATH / f'picks_{args.model_name}_{args.start_time[:10]}_days{args.days}.csv',index=False)
 
-    # iterate through each event and find picks within the event duration
+    # iterate through each event and find picks within the event duration (associate phases with an event)
     num_events = len(event_traceids_all)
     flags = ['']*num_events
     event_Ptimes = [np.nan] * num_events
     event_Stimes = [np.nan] * num_events
     event_Pmaxconf = [np.nan] * num_events
     event_Smaxconf = [np.nan] * num_events
-    additional_Ptimes = [[] for _ in range(num_events)]
-    additional_Stimes = [[] for _ in range(num_events)]
+    additional_Ptimes = [[] for _ in range(num_events)]   # list to store additional P picks if many are detected in the same event
+    additional_Stimes = [[] for _ in range(num_events)]   # same as above but for S picks
     for event_idx in range(num_events):
         found_P = False
         found_S = False
         for pick_idx in range(len(pick_traceids_all)):
             pick_peaktime = pick_peaktimes_all[pick_idx]
             pick_phase = pick_phase_all[pick_idx]
+            # check if a pick falls within a detected event
             if pick_peaktime >= event_starttimes_all[event_idx] and pick_peaktime <= event_endtimes_all[event_idx]:
                 if pick_phase == 'P' and found_P == False:
                     event_Ptimes[event_idx] = pick_peaktime
@@ -199,9 +208,9 @@ if __name__ == '__main__':
     parser.add_argument("--duration", default=60 * 60 * 24, type=float, help='duration (usually 24 h) of data to save to file')
     parser.add_argument("--days", default=7, type=int)
 
-    #Data retrieval parameters
+    # Data retrieval parameters
     parser.add_argument("--datadirect", default=True, action=argparse.BooleanOptionalAction, 
-                        help="Pass --no-datadirect to retrieve seismic data through utils_process/Obspy")
+                        help="Directly searches for locally saved mseed files in the constants.DATA_MSEED folder. Pass --no-datadirect to retrieve seismic data through utils_process/Web Services")
                         
     # Machine learning model parameters 
     # See list of available models here: https://seisbench.readthedocs.io/en/stable/pages/models.html#models-integrated-into-seisbench")
@@ -226,5 +235,6 @@ if __name__ == '__main__':
                                     """)
     args = parser.parse_args()
     
+    # apply ML detector and save results to files
     detect_signals(args)
 
