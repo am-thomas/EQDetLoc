@@ -1,3 +1,10 @@
+# Program applies a simple approach to "associate" phase picks and create individual files of associated phases (picklists)
+# Approach: group together phase picks within 10-minutes of eachother and create files of grouped/associated phase picks if 
+# at least 5 stations have detected phase arrivals within the 10-minute interval
+#
+# Example to associate phase picks from stations N4.M44A, N4.L42A, and NW.L44A:
+# python get_picklist.py --net_stalist N4_M44A N4_L42A NW_L44A --start_day 2024-07-14 --days 2 --exp_name test
+
 from constants import DETECTIONS_PATH, NUM_SECS_DAY, PICKLISTS_PATH, STALOCS_PATH
 import argparse
 import pandas as pd
@@ -15,12 +22,15 @@ def get_picklist(net_stalist, start_day, days, model_name):
         try:
             df = pd.read_csv(DETECTIONS_PATH / net_sta / 'combined' / f'combined_{model_name}_{args.start_day}_days{args.days}.csv')
             lendf_orig = len(df)
+            # remove detections with confidence less than desired threshold 
             df = df[df['event_maxconfidence'] >= args.detection_threshold]
             lenddf_cut = len(df)
             if lendf_orig != lenddf_cut:
                 print(f'Ignoring events detected in {net_sta} which have a max confidence < {args.detection_threshold}')
             df_list.append(df)
             new_netsta_list.append(net_sta)
+        
+        # catch no data stations
         except FileNotFoundError:
             response = input(f"No combined csv file found for {net_sta}. Do you want to skip this station and continue? (yes/no): ").strip().lower()
             if response == 'no':
@@ -101,7 +111,7 @@ def get_picklist(net_stalist, start_day, days, model_name):
     merged_df = merged_df.dropna(subset=columns_to_check, axis=0, how='all')
     merged_df = merged_df.reset_index(drop=True)
 
-    # create individual csv files for picks within 10 min of ref times that contain more than 2 phase arrivals
+    # store lists of all pick times, parameters, and other relevant parameters
     saved_refs = []
     for idx, ref_time in enumerate(merged_df['ref_time']):
         station_list = []
@@ -132,6 +142,8 @@ def get_picklist(net_stalist, start_day, days, model_name):
                 pick_maxconfidences.append( merged_df.loc[idx, f'{net_sta}_{phase}_maxconfidence'] )
                 pick_phases.append(phase)
 
+        # create individual csv files for picks within 10 min of ref times that contain more than 2 phase arrivals
+        # and have arrivals from atleast (args.minstations) number of stations
         len_picks_1event = len(pick_times)
         unique_stas = np.unique(station_list)
         if len_picks_1event > 2 and len(unique_stas) >= args.minstations:
