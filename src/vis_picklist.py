@@ -1,3 +1,10 @@
+# Program to visualize each pick from a desired picklists. 
+# Picks that exceed the pick uncertainty (0.5 s) should be manually modified or flagged in picklist csv.
+#
+# Example:
+# python vis_picklist.py --exp_name test --csv picklist_2022-08-11T03-30-00.csv
+
+
 import argparse
 from constants import PICKLISTS_PATH, DATA_MSEED, STALOCS_PATH
 import pandas as pd
@@ -43,6 +50,7 @@ if __name__ == '__main__':
 
     # iterate through each pick and plot 5 seconds before event start time and 5 seconds after end time
     for i, pick_time in enumerate(df_picks['arrivaltime_utc']):
+        # store station parameters
         net_sta = df_picks.loc[i, 'station']
         netsta_split = net_sta.split('_')
         net = netsta_split[0]
@@ -50,17 +58,17 @@ if __name__ == '__main__':
         loc = sta_dict[net_sta][0]
         if np.isnan(loc):
             loc = ''
-            
         chan_list = sta_dict[net_sta][1]
 
+        # store pick/event parameters
         event_start_utc = UTCDateTime( df_picks.loc[i, 'event_start_utc'])
         event_end_utc = UTCDateTime( df_picks.loc[i, 'event_end_utc'])
         pick_confidence = df_picks.loc[i, 'pick_confidence']
 
+        # set plot to start 5 seconds before and after the event
         plot_start = event_start_utc - 5
         plot_end = event_end_utc + 5
         duration = plot_end - plot_start
-
         pick_time_rel = UTCDateTime(pick_time.split('+')[0]) - plot_start
 
         # plot unfiltered waveforms
