@@ -1,3 +1,5 @@
+# [Optional] program to plot events that have multiple detected picks of the same phase
+
 import argparse
 import pandas as pd
 from constants import DETECTIONS_PATH, STALOCS_PATH, DATA_MSEED
