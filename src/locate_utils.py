@@ -41,6 +41,7 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
         covm: array, covariance matrix with order origin time, longitude, latitude, and depth
         param1: string, name of 1st parameter ('otime' = origin time, 'lon' = longitude, 'lat' = latitude, or 'depth' = depth)
         param2: string, name of 2nd parameter ('otime' = origin time, 'lon' = longitude, 'lat' = latitude, or 'depth' = depth)
+        annotate: Boolean, True if covariance matrix, eigenvectors, and eigenvalues should be printed. False if otherwise    
     return:
         major: float, major axis length
         minor: float, minor axis length
@@ -58,14 +59,15 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
         print( 'std in tq,lonq,latq,hq:')
         print( np.sqrt(covm[0,0]),np.sqrt(covm[1,1]),np.sqrt(covm[2,2]))
 
+    # compute eigenvectors and eigenvalues
     w,v = np.linalg.eig(covm)
-    w1 = np.sqrt(w)
     if annotate:
+        w1 = np.sqrt(w)
         print( 'sqrt of eigenvalues, eigenvalues (covariances), and eigenvectors:')
         for i in np.arange(len(w)):
             print(  i, w1[i],w[i],v[:,i])
-    # do not project ellipsoid onto x-y plane, but take the intersection:
-    covlatlon = covm[[param1_idx, param2_idx], :][:, [param1_idx, param2_idx]]           # covariance matrix with the desired parameters
+    # get the marginal distribution (submatrix) of the multivariate covariate matrix, using the desired parameters
+    covlatlon = covm[[param1_idx, param2_idx], :][:, [param1_idx, param2_idx]]          
     w,v = np.linalg.eig(covlatlon)
 
     # order eigen values and eigen vectors by decreasing eigevalues
@@ -74,8 +76,7 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
     v = v[:,idx]  
 
     # total length of axes (diameters): 
-    # twice the standar deviation for the ~68.3% confidence region, four times the s.d. for 95.4%, 
-    # six times the s.d. for 98.9% (in 2D)
+    # radius is twice the standard deviation for a ~86% confidence interval
     major = 4*np.sqrt(w[0])
     minor = 4*np.sqrt(w[1])
     rota = np.degrees(np.arctan2(v[1,0],v[0,0]))
@@ -101,7 +102,6 @@ def get_dists_azimuths(source_lat, source_lon, station_lats, station_lons):
         azimuths: numpy array, list of azimuths in degrees
     '''
     deltas = []
-    # dists_km = []
     azimuths = []
     teta1 = np.radians(source_lat)
     fi1 = np.radians(source_lon)
@@ -132,7 +132,6 @@ def get_dists_azimuths(source_lat, source_lon, station_lats, station_lons):
         azimuth = np.degrees(np.arctan2(teller,rnoemer))
 
         deltas.append(delta)
-        # dists_km.append(dist_km)
         azimuths.append(azimuth)
 
     return np.array(deltas), np.array(azimuths)
@@ -176,9 +175,14 @@ def get_partial_h(vels_atdepth, ta_deg):
 
 
 def get_damp(lbda, ias_deg,  Zbool, alpha=5.8):
-    # creates a diagonal matrix with damping values for each model parameter (order: origin time, longitude, latitude, depth [optional])
-    # inputs: lba (constant factor to multiply each damping value), ias/incident angles [deg], 
-    # Zbool (Boolean, True if inverting for depth, False otherwise), alpha/Pwave velocity [km/s] to use as a rough value
+    '''
+    Returns a diagonal matrix with damping values for each model parameter (order: origin time, longitude, latitude, depth [optional])
+    param: 
+        lbda: float, constant factor to multiply each damping value
+        ias_deg: array-like, list of incident angles (degrees) 
+        Zbool: Boolean, True if inverting for depth, False otherwise
+        alpha: float, P wave velocity [km/s] to use as a rough value
+    '''
     ia = np.min(ias_deg)
     d_otime = lbda                                                 
     d_lon = lbda*np.sin(np.radians(ia)) / (alpha*0.01)
@@ -191,7 +195,7 @@ def get_damp(lbda, ias_deg,  Zbool, alpha=5.8):
     return damping
 
 
-def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,Zbool,damp_factor,sigmaT=1.0,annotate=True):
+def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,Zbool,damp_factor,sigmaT=0.5,annotate=True):
     '''
     Function that performs inversion on a given list of arrival P/S times
     param:
@@ -202,8 +206,8 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         elv: array, station elevations [km]
         atm: array, P or S arrival times [s after reference time]
         phases: list, list of phases ('P' or 'S') corresponding to each arrival
-        velmodel_csv: string, name of csv that contains P and S velocities of a desired model. Should be within data/velocity-models
-        startloc: list/array, 4-element list-like object containing (1) origin time in s after ref time, 
+        velmodel_csv: string, name of csv that contains P and S velocities of a desired model. Should be within data/velocity-models folder
+        startloc: list/array, 4-element list-like object containing initial guesses for (1) origin time in s after ref time, 
                 (2) longitude in km,  (3) latitude in km, and (4) depth in km
         Zbool: Bool, True to perform inversion for depth or False to keep depth fixed at initial guess
         damp_factor: integer, constant factor to multiply to damping matrix
@@ -221,7 +225,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         print("m, initial guess = ", startloc)
         print('')
 
-    # account for inverting for depth or not
+    # store zero array for model parameters. account for inverting for depth or not
     if Zbool: 
         m = np.zeros(4)
     else:
@@ -235,18 +239,22 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         surface_vels.append( surface_vel_dict[type])
     surface_vels = np.array(surface_vels)
 
-    # iterative counter to solve for new model parameters
-    loc = [startloc]
-    converg_threshold = 2*sigmaT
-    converg_crit = 1e9
-    percchange_converg = 1e9
-    k = 0 
-    while converg_crit > converg_threshold and percchange_converg > 0.005 and k < 100:
-        # compute data vectors of residual times
+    # set initial values
+    loc = [startloc]                # initial guess of source parameters   
+    converg_threshold = 3*sigmaT    # threshold for solution convergence 
+    converg_crit = 1e9              # initial arbitrary values for convergence criterion
+    percchange_converg = 1e9        # ^ for percent change in convergence criterion
+    k = 0                           # iteration number
+
+    # update locations until solution converges OR number of iterations exceed 100
+    while (converg_crit > converg_threshold or percchange_converg > 0.10) and k < 100:
+        # get initial guess or guess from previous iteration
         tq,lonq,latq,hq = loc[k]
+        # compute great circle distances and azimuths
         grc_deltas, azs = get_dists_azimuths(latq, lonq, lat_sta, lon_sta)
 
-        # compute predicted travel times (t_ts, s), ray parameters (rhos, s/deg), incident angles (ias, deg), and  takeoff angles (tas, deg) using taup
+        # compute predicted travel times (t_ts, s), ray parameters (rhos, s/deg), incident angles (ias, deg),
+        # and  takeoff angles (tas, deg) using taup, with respect to initial/previous guess
         t_ts = []
         rhos = []
         ias_deg = []
@@ -255,7 +263,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             if phases[pick_i]=='P': phase_list=['p','P']
             elif phases[pick_i]=='S': phase_list=['s','S']
             arrivals = model.get_travel_times(source_depth_in_km=hq,distance_in_degree=delta, 
-                                            receiver_depth_in_km = 0, phase_list=phase_list)
+                                            receiver_depth_in_km=0, phase_list=phase_list)
             t_ts.append(arrivals[0].time)
             rhos.append(arrivals[0].ray_param_sec_degree)
             ias_deg.append(arrivals[0].incident_angle)
@@ -267,9 +275,11 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         ias_deg = np.array(ias_deg)
         tas_deg = np.array(tas_deg)
 
-        # compute data vectors
+        # compute data vectors, correcting for variable elevations
         elv_correc = elv/(surface_vels * np.cos(np.radians(ias_deg)))       # time to travel the elevation of the station
         d = atm - elv_correc - tq - t_ts
+        
+        # plot the difference between the observed travel times and the predicted travel times based on the initial guess
         if k ==0:
             std_initial = np.std(d)
             plt.hist(d)
@@ -277,8 +287,15 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             plt.ylabel('number of observations')
             plt.title(f'stdev: {std_initial}')
             plt.show()
+
+            # print arrivals that exceed a residual of 10 s
+            print('Checking arrivals with travel time misfit between initial guess and observation [s] which exceed 10 s...')
+            for d_i, residual in enumerate(d):
+                if abs(residual) > 10:
+                    print(f'Condition met for {phases[d_i]} arrival at station with (lon, lat): ({lon_sta[d_i]},{lat_sta[d_i]})' )
+            print('')
         
-        # solve for model paramter vectors 
+        # compute each component of the G matrix 
         rowt = np.ones(n)
         rowo = get_partial_phi(azs, rhos)
         rowa = get_partial_theta(azs, rhos)
@@ -295,6 +312,8 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             GT = np.array([rowt,rowo,rowa,rowz])
         else:
             GT = np.array([rowt,rowo,rowa])
+        
+        # apply damping and solve for the model parameters
         damp = get_damp(damp_factor,ias_deg, Zbool)
         G = GT.T
         GTG = np.dot(GT,G)
@@ -302,7 +321,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         Gmg = np.dot(GTGm1,GT)
         m = np.dot(Gmg,d)
 
-        # compute the convergence criterion and store percent change
+        # compute the convergence criterion and store percent change from previous criterion
         diff_Gm_d = np.dot(G, m) - d
         new_converg_crit = np.sqrt(np.sum(diff_Gm_d**2) / len(d))
         percchange_converg = (np.abs(new_converg_crit - converg_crit) / converg_crit) * 100
@@ -340,7 +359,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         
     if k == 100:
         print('Convergence was not reached after 100 iterations')
-        response = input("Do you want to continue and save the solution at the 100th iteration (y/n): ").strip().lower()
+        response = input("Do you want to continue (y/n)?: ").strip().lower()
 
         if response == 'n':
             print('Exiting program...')
@@ -351,6 +370,14 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             print('Response other than yes was recorded. Exiting program...')
             exit()
 
+    # plot the difference between the observed travel times and the predicted travel times based on the final guess
+    std_final = np.std(d)
+    plt.hist(d)
+    plt.xlabel('travel time misfit between final guess and observation [s]')
+    plt.ylabel('number of observations')
+    plt.title(f'stdev: {std_final}')
+    plt.show()
+    
     print( f'final solution after {k} iterations')
     print( 'convergence criterion:', converg_crit)
     print( f'criterion percent diff from the {k-1}-th iteration: {percchange_converg}')
