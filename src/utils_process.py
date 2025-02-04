@@ -1,4 +1,3 @@
-# TODO: delete if code does not use get_rawdata()
 # Program contains additional functions to extract seismic data from IRIS and create PSDs. 
 
 from obspy import UTCDateTime, read
