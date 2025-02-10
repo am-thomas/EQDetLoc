@@ -183,12 +183,12 @@ def get_damp(lbda, ias_deg,  Zbool, alpha=5.8):
         Zbool: Boolean, True if inverting for depth, False otherwise
         alpha: float, P wave velocity [km/s] to use as a rough value
     '''
-    ia = np.min(ias_deg)
+    ia = np.median(ias_deg)
     d_otime = lbda                                                 
     d_lon = lbda*np.sin(np.radians(ia)) / (alpha*0.01)
     d_lat = d_lon
     if Zbool:
-        d_h = lbda/alpha
+        d_h = lbda*np.cos(np.radians(ia))/alpha
         damping = np.diag( [d_otime, d_lon, d_lat, d_h])
     else:
         damping = np.diag( [d_otime, d_lon, d_lat])
