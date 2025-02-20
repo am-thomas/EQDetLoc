@@ -60,8 +60,8 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
         print( np.sqrt(covm[0,0]),np.sqrt(covm[1,1]),np.sqrt(covm[2,2]))
 
     # compute eigenvectors and eigenvalues
-    w,v = np.linalg.eig(covm)
     if annotate:
+        w,v = np.linalg.eig(covm)
         w1 = np.sqrt(w)
         print( 'sqrt of eigenvalues, eigenvalues (covariances), and eigenvectors:')
         for i in np.arange(len(w)):
@@ -174,7 +174,7 @@ def get_partial_h(vels_atdepth, ta_deg):
     return partial_h
 
 
-def get_damp(lbda, ias_deg,  Zbool, alpha=5.8):
+def get_damp(lbda, ias_deg,  Zbool, alpha=6):
     '''
     Returns a diagonal matrix with damping values for each model parameter (order: origin time, longitude, latitude, depth [optional])
     param: 
