@@ -174,21 +174,21 @@ def get_partial_h(vels_atdepth, ta_deg):
     return partial_h
 
 
-def get_damp(lbda, ias_deg,  Zbool, alpha=6):
+def get_damp(lbda, tas_deg,  Zbool, alpha=6):
     '''
     Returns a diagonal matrix with damping values for each model parameter (order: origin time, longitude, latitude, depth [optional])
     param: 
         lbda: float, constant factor to multiply each damping value
-        ias_deg: array-like, list of incident angles (degrees) 
+        tas_deg: array-like, list of take-off angles (degrees) 
         Zbool: Boolean, True if inverting for depth, False otherwise
         alpha: float, P wave velocity [km/s] to use as a rough value
     '''
-    ia = np.median(ias_deg)
+    ta_med = np.median(tas_deg)
     d_otime = lbda                                                 
-    d_lon = lbda*np.sin(np.radians(ia)) / (alpha*0.01)
+    d_lon = lbda*np.sin(np.radians(ta_med)) / (alpha*0.01)
     d_lat = d_lon
     if Zbool:
-        d_h = lbda*np.cos(np.radians(ia))/alpha
+        d_h = lbda*np.cos(np.radians(ta_med))/alpha
         damping = np.diag( [d_otime, d_lon, d_lat, d_h])
     else:
         damping = np.diag( [d_otime, d_lon, d_lat])
@@ -314,7 +314,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             GT = np.array([rowt,rowo,rowa])
         
         # apply damping and solve for the model parameters
-        damp = get_damp(damp_factor,ias_deg, Zbool)
+        damp = get_damp(damp_factor,tas_deg, Zbool)
         G = GT.T
         GTG = np.dot(GT,G)
         GTGm1 = np.linalg.inv(GTG+damp)
