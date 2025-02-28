@@ -317,7 +317,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
         damp = get_damp(damp_factor,tas_deg, Zbool)
         G = GT.T
         GTG = np.dot(GT,G)
-        GTGm1 = np.linalg.inv(GTG+damp)
+        GTGm1 = np.linalg.inv(GTG+(damp**2))
         Gmg = np.dot(GTGm1,GT)
         m = np.dot(Gmg,d)
 
