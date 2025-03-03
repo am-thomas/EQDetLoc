@@ -76,9 +76,9 @@ def merrors(covm, param1='lon', param2='lat',annotate=False):
     v = v[:,idx]  
 
     # total length of axes (diameters): 
-    # radius is twice the standard deviation for a ~86% confidence interval
-    major = 4*np.sqrt(w[0])
-    minor = 4*np.sqrt(w[1])
+    # radius is thrice the standard deviation for a ~99% confidence interval
+    major = 6*np.sqrt(w[0])
+    minor = 6*np.sqrt(w[1])
     rota = np.degrees(np.arctan2(v[1,0],v[0,0]))
 
     if annotate:
