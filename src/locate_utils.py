@@ -324,6 +324,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
                 (2) longitude in km,  (3) latitude in km, and (4) depth in km
         covm: covariance matrix of final solution
         otime_utc_final: datetime object, final solution for origin time in UTC
+        loc_nodamp: list of source parameters (in the same order as loc) for the special solution with no damping applied
     '''
 
     if annotate:
@@ -352,7 +353,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
     percchange_converg = 1e9        # ^ for percent change in convergence criterion
     k = 0                           # iteration number
 
-    # update locations until solution converges OR number of iterations exceed 100
+    # iteratively apply least squares and update locations until solution converges OR number of iterations exceed 100
     while (converg_crit > converg_threshold or percchange_converg > 0.10) and k < 100:
         # get initial guess or guess from previous iteration
         tq,lonq,latq,hq = loc[k]
@@ -405,13 +406,22 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             print('Response other than yes was recorded. Exiting program...')
             exit()
 
-    # compute covariance matrix
+    # compute covariance matrix for final solution
     varT = sigmaT**2
     covm = varT*GTGm1 
     
+    # compute and store another least squares solution, using the final solution as the initial guess and no damping
+    tq_final,lonq_final,latq_final,hq_final = loc[-1]
+    d_nodamp, m_nodamp, GTGm1_nodamp, new_converg_crit_nodamp, percchange_converg_nodamp = leastsquares(k, n, tq_final, hq_final, latq_final, lonq_final, converg_crit, 
+                                                                                                        lat_sta, lon_sta, elv, atm, phases, surface_vels, velmodel_csv, Zbool, damp_factor=0)
+    if Zbool:
+        loc_nodamp = [tq_final+m_nodamp[0], lonq_final+m_nodamp[1], latq_final+m_nodamp[2], hq_final+m_nodamp[3]]
+    else:
+        loc_nodamp = [tq_final+m_nodamp[0], lonq_final+m_nodamp[1], latq_final+m_nodamp[2], hq_final]
+
     # plot the difference between the observed travel times and the predicted travel times based on the final guess
-    std_final = np.std(d)
-    plt.hist(d)
+    std_final = np.std(d_nodamp)
+    plt.hist(d_nodamp)
     plt.xlabel('travel time misfit between final guess and observation [s]')
     plt.ylabel('number of observations')
     plt.title(f'stdev: {std_final}')
@@ -426,4 +436,4 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
     print( 'lat and lon (degrees): ',loc[-1][2],loc[-1][1])
     print( 'depth (km): ',loc[-1][3])
    
-    return loc, covm, otime_utc_final, k, converg_crit, percchange_converg
+    return loc, covm, otime_utc_final, k, converg_crit, percchange_converg, loc_nodamp
