@@ -7,6 +7,7 @@ from constants import PICKLISTS_PATH, EQLOCS_PATH
 import locate_utils
 import warnings
 import os
+from datetime import datetime, timedelta
 
 # suppress specific warnings
 warnings.filterwarnings("ignore", message=".*The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.*")
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     print('')
 
     # perform least squares inversion
-    loc, covm, otime_utc_final, k, converg_crit, percchange_converg = locate_utils.locatequake(n_arrivals,reftime,ylat,xlon,elv,atm,phases,'IASP91.csv',startloc,
+    loc, covm, otime_utc_final, k, converg_crit, percchange_converg, loc_nodamp = locate_utils.locatequake(n_arrivals,reftime,ylat,xlon,elv,atm,phases,'IASP91.csv',startloc,
                                          args.invert4depth,damp_factor=args.damp,sigmaT=args.uncertainty_atm,annotate=False)
     
     # compute and plot error ellipse matrix for each pair of source parameters
@@ -142,7 +143,9 @@ if __name__ == '__main__':
     # save solution to csv
     new_row = pd.DataFrame({'reference_time_utc': reftime, 'exp_name': args.exp_name, 'pick_csv': args.csv,
             'source_origintime': otime_utc_final, 'source_latitude_deg': loc[-1][2], 'source_longitude_deg': loc[-1][1],
-            'source_depth': loc[-1][3],'num_arrivals':n_arrivals, 'damp_factor': args.damp,
+            'source_depth': loc[-1][3], 'nodamp_origintime': datetime.fromisoformat(reftime) + timedelta(seconds=loc_nodamp[0]), 
+            'nodamp_latitude_deg': loc_nodamp[2], 'nodamp_longitude_deg': loc_nodamp[1], 
+            'nodamp_source_depth': loc_nodamp[3], 'num_arrivals':n_arrivals, 'damp_factor': args.damp,
             'uncertainty_atm_s': args.uncertainty_atm, 'initial_guess': str(startloc), 'invert4depth': args.invert4depth,
             'num_iterations': k, 'convergence_criterion': converg_crit, 'criterionchange_percent': percchange_converg,
             'errmajor_otime_lon': majors['otime_lon'], 'errminor_otime_lon': minors['otime_lon'], 
