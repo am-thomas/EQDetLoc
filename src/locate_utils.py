@@ -194,12 +194,118 @@ def get_damp(lbda, tas_deg,  Zbool, alpha=6):
         damping = np.diag( [d_otime, d_lon, d_lat])
     return damping
 
+def leastsquares(k, n, tq, hq, latq, lonq, converg_crit, lat_sta, lon_sta, elv, atm, phases, surface_vels, velmodel_csv, Zbool, damp_factor):
+    '''
+    Runs one iteration of computing the damped least squares solution. Dependency of locatequake(). For iterations k > 0,
+    the initial guess of source parameters is the solution from the previous iteration
+    param:
+        k: int, iteration number
+        n: int, number of arrival times
+        tq: float, initial guess of origin time [s after ref time]
+        hq: float, initial guess of depth [km]
+        latq: float, initial guess of source latitude [deg]
+        lonq: float, intial guess of source longitude [deg]
+        converg_crit: float, convergence criterion (or placeholder for k=0) from previous iteration
+        lat_sta: array, station latitudes [deg]
+        lon_sta: array, station latitudes [deg]]
+        elv: array, station elevations [km]
+        atm: array, P or S arrival times [s after reference time]
+        phases: list, list of phases ('P' or 'S') corresponding to each arrival
+        surface_vels: dictionary, dictionary of P and S velocities at the surface
+        velmodel_csv: string, name of csv that contains P and S velocities of a desired model. Should be within data/velocity-models folder
+        Zbool: Bool, True to perform inversion for depth or False to keep depth fixed at initial guess
+        damp_factor: integer, constant factor to multiply to damping matrix
+    returns:
+        d: array, data vector of least squares equation
+        m: array, computed solution of the model vector
+        GTGm1: array, solution based on G matrix and m vector, needed for covariance matrix
+        new_converg_crit: convergence criterion (a measure of misfit between observed and prediced arrival times)
+        percchange_converg: percent change in the convergence criterion for the current iteration with respect to the previous iteration
+    '''
+
+    # compute great circle distances and azimuths
+    grc_deltas, azs = get_dists_azimuths(latq, lonq, lat_sta, lon_sta)
+
+    # compute predicted travel times (t_ts, s), ray parameters (rhos, s/deg), incident angles (ias, deg),
+    # and  takeoff angles (tas, deg) using taup, with respect to initial/previous guess
+    t_ts = []
+    rhos = []
+    ias_deg = []
+    tas_deg = []
+    for pick_i, delta in enumerate(grc_deltas):
+        if phases[pick_i]=='P': phase_list=['p','P']
+        elif phases[pick_i]=='S': phase_list=['s','S']
+        arrivals = model.get_travel_times(source_depth_in_km=hq,distance_in_degree=delta, 
+                                        receiver_depth_in_km=0, phase_list=phase_list)
+        t_ts.append(arrivals[0].time)
+        rhos.append(arrivals[0].ray_param_sec_degree)
+        ias_deg.append(arrivals[0].incident_angle)
+        tas_deg.append(arrivals[0].takeoff_angle)
+
+    # store parameters as numpy arrays
+    t_ts = np.array(t_ts)
+    rhos = np.array(rhos) 
+    ias_deg = np.array(ias_deg)
+    tas_deg = np.array(tas_deg)
+
+    # compute data vectors, correcting for variable elevations
+    elv_correc = elv/(surface_vels * np.cos(np.radians(ias_deg)))       # time to travel the elevation of the station
+    d = atm - elv_correc - tq - t_ts
+    
+    # plot the difference between the observed travel times and the predicted travel times based on the initial guess
+    if k ==0:
+        std_initial = np.std(d)
+        plt.hist(d)
+        plt.xlabel('travel time misfit between initial guess and observation [s]')
+        plt.ylabel('number of observations')
+        plt.title(f'stdev: {std_initial}')
+        plt.show()
+
+        # print arrivals that exceed a residual of 10 s
+        print('Checking arrivals with travel time misfit between initial guess and observation [s] which exceed 10 s...')
+        for d_i, residual in enumerate(d):
+            if abs(residual) > 10:
+                print(f'Condition met for {phases[d_i]} arrival at station with (lon, lat): ({lon_sta[d_i]},{lat_sta[d_i]})' )
+        print('')
+    
+    # compute each component of the G matrix 
+    rowt = np.ones(n)
+    rowo = get_partial_phi(azs, rhos)
+    rowa = get_partial_theta(azs, rhos)
+    if Zbool:
+        # create an array of velocities at source depth that match each arrival type
+        vel_atdepth_dict = {'P': get_velocity(depth=hq, phase='P', model_csv=velmodel_csv), 
+                        'S': get_velocity(depth=hq, phase='S', model_csv=velmodel_csv)}
+        vels_atdepth = []
+        for type in phases:
+            vels_atdepth.append( vel_atdepth_dict[type])
+        vels_atdepth = np.array(vels_atdepth)
+
+        rowz = get_partial_h(vels_atdepth, tas_deg)
+        GT = np.array([rowt,rowo,rowa,rowz])
+    else:
+        GT = np.array([rowt,rowo,rowa])
+    
+    # apply damping and solve for the model parameters
+    damp = get_damp(damp_factor,tas_deg, Zbool)
+    G = GT.T
+    GTG = np.dot(GT,G)
+    GTGm1 = np.linalg.inv(GTG+(damp**2))
+    Gmg = np.dot(GTGm1,GT)
+    m = np.dot(Gmg,d)
+
+    # compute the convergence criterion and store percent change from previous criterion
+    diff_Gm_d = np.dot(G, m) - d
+    new_converg_crit = np.sqrt(np.sum(diff_Gm_d**2) / len(d))
+    percchange_converg = (np.abs(new_converg_crit - converg_crit) / converg_crit) * 100
+
+    return d, m, GTGm1, new_converg_crit, percchange_converg
 
 def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,Zbool,damp_factor,sigmaT=0.5,annotate=True):
     '''
     Function that performs inversion on a given list of arrival P/S times
     param:
-        n: int, number of arrival times/stations
+        n: int, number of arrival times
         ref_time: str, reference time in UTC
         lat_sta: array, station latitudes [deg]
         lon_sta: array, station latitudes [deg]]
@@ -250,94 +356,22 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
     while (converg_crit > converg_threshold or percchange_converg > 0.10) and k < 100:
         # get initial guess or guess from previous iteration
         tq,lonq,latq,hq = loc[k]
-        # compute great circle distances and azimuths
-        grc_deltas, azs = get_dists_azimuths(latq, lonq, lat_sta, lon_sta)
-
-        # compute predicted travel times (t_ts, s), ray parameters (rhos, s/deg), incident angles (ias, deg),
-        # and  takeoff angles (tas, deg) using taup, with respect to initial/previous guess
-        t_ts = []
-        rhos = []
-        ias_deg = []
-        tas_deg = []
-        for pick_i, delta in enumerate(grc_deltas):
-            if phases[pick_i]=='P': phase_list=['p','P']
-            elif phases[pick_i]=='S': phase_list=['s','S']
-            arrivals = model.get_travel_times(source_depth_in_km=hq,distance_in_degree=delta, 
-                                            receiver_depth_in_km=0, phase_list=phase_list)
-            t_ts.append(arrivals[0].time)
-            rhos.append(arrivals[0].ray_param_sec_degree)
-            ias_deg.append(arrivals[0].incident_angle)
-            tas_deg.append(arrivals[0].takeoff_angle)
-
-        # store parameters as numpy arrays
-        t_ts = np.array(t_ts)
-        rhos = np.array(rhos) 
-        ias_deg = np.array(ias_deg)
-        tas_deg = np.array(tas_deg)
-
-        # compute data vectors, correcting for variable elevations
-        elv_correc = elv/(surface_vels * np.cos(np.radians(ias_deg)))       # time to travel the elevation of the station
-        d = atm - elv_correc - tq - t_ts
         
-        # plot the difference between the observed travel times and the predicted travel times based on the initial guess
-        if k ==0:
-            std_initial = np.std(d)
-            plt.hist(d)
-            plt.xlabel('travel time misfit between initial guess and observation [s]')
-            plt.ylabel('number of observations')
-            plt.title(f'stdev: {std_initial}')
-            plt.show()
+        # compute the damped least squares solution, storing the final solution and convergence criteria
+        d, m, GTGm1, new_converg_crit, percchange_converg = leastsquares(k, n, tq, hq, latq, lonq, converg_crit, lat_sta, lon_sta, elv, atm, phases, surface_vels, velmodel_csv, Zbool, damp_factor)
 
-            # print arrivals that exceed a residual of 10 s
-            print('Checking arrivals with travel time misfit between initial guess and observation [s] which exceed 10 s...')
-            for d_i, residual in enumerate(d):
-                if abs(residual) > 10:
-                    print(f'Condition met for {phases[d_i]} arrival at station with (lon, lat): ({lon_sta[d_i]},{lat_sta[d_i]})' )
-            print('')
-        
-        # compute each component of the G matrix 
-        rowt = np.ones(n)
-        rowo = get_partial_phi(azs, rhos)
-        rowa = get_partial_theta(azs, rhos)
-        if Zbool:
-            # create an array of velocities at source depth that match each arrival type
-            vel_atdepth_dict = {'P': get_velocity(depth=hq, phase='P', model_csv=velmodel_csv), 
-                            'S': get_velocity(depth=hq, phase='S', model_csv=velmodel_csv)}
-            vels_atdepth = []
-            for type in phases:
-                vels_atdepth.append( vel_atdepth_dict[type])
-            vels_atdepth = np.array(vels_atdepth)
-
-            rowz = get_partial_h(vels_atdepth, tas_deg)
-            GT = np.array([rowt,rowo,rowa,rowz])
-        else:
-            GT = np.array([rowt,rowo,rowa])
-        
-        # apply damping and solve for the model parameters
-        damp = get_damp(damp_factor,tas_deg, Zbool)
-        G = GT.T
-        GTG = np.dot(GT,G)
-        GTGm1 = np.linalg.inv(GTG+(damp**2))
-        Gmg = np.dot(GTGm1,GT)
-        m = np.dot(Gmg,d)
-
-        # compute the convergence criterion and store percent change from previous criterion
-        diff_Gm_d = np.dot(G, m) - d
-        new_converg_crit = np.sqrt(np.sum(diff_Gm_d**2) / len(d))
-        percchange_converg = (np.abs(new_converg_crit - converg_crit) / converg_crit) * 100
-        converg_crit = new_converg_crit
-        
-        # print updated m vector
+        # store array of new source parameters
         if Zbool:
             newloc = [tq+m[0], lonq+m[1], latq+m[2], hq+m[3]]
         else:
             newloc = [tq+m[0], lonq+m[1], latq+m[2], hq]
         
+        # print solutions and parameters as desired
         if annotate:
             print('iteration:', k)
-            print( '|d| = ', np.linalg.norm(d),' |d|^2 = ', np.linalg.norm(d)**2)
             print( 'm = ', m)
             print( 'newloc = ', newloc)
+            print( 'convergence criterion', new_converg_crit)
             
             # plot new guess with older guesses
             # fig, ax = plt.subplots(1,2)
@@ -353,8 +387,9 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             # ax[1].set_xlabel('Residuals [s]')
             # plt.show()
 
-        # add new location to list of guesses
+        # add new location to list of guesses and make updates for the next iteration
         loc = loc + [newloc]
+        converg_crit = new_converg_crit
         k = k + 1
         
     if k == 100:
@@ -370,6 +405,10 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
             print('Response other than yes was recorded. Exiting program...')
             exit()
 
+    # compute covariance matrix
+    varT = sigmaT**2
+    covm = varT*GTGm1 
+    
     # plot the difference between the observed travel times and the predicted travel times based on the final guess
     std_final = np.std(d)
     plt.hist(d)
@@ -386,9 +425,5 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
     print('origin time (utc):', otime_utc_final)
     print( 'lat and lon (degrees): ',loc[-1][2],loc[-1][1])
     print( 'depth (km): ',loc[-1][3])
-
-    # compute covariance matrix
-    varT = sigmaT**2
-    covm = varT*GTGm1 
    
     return loc, covm, otime_utc_final, k, converg_crit, percchange_converg
