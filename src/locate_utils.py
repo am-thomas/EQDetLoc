@@ -119,6 +119,11 @@ def get_dists_azimuths(source_lat, source_lon, station_lats, station_lons):
         factor1 = np.cos(fi1-fi2)
         term2 = factor1*factor2
         som = term1 + term2
+        # np.arccos can only accomodate values between -1 and 1. If som > 1 but within 1e-15 of 1, set som to 1
+        if abs(som) > 1:
+            if abs(som) - 1 < 1e-15:
+                som = -1 if som < 0 else 1
+        #print(som)
         delta = np.degrees(np.arccos(som))
 
         # # convert great circle distance to km
@@ -357,7 +362,7 @@ def locatequake(n,reftime, lat_sta,lon_sta,elv,atm,phases,velmodel_csv,startloc,
     while (converg_crit > converg_threshold or percchange_converg > 0.10) and k < 100:
         # get initial guess or guess from previous iteration
         tq,lonq,latq,hq = loc[k]
-        
+
         # compute the damped least squares solution, storing the final solution and convergence criteria
         d, m, GTGm1, new_converg_crit, percchange_converg = leastsquares(k, n, tq, hq, latq, lonq, converg_crit, lat_sta, lon_sta, elv, atm, phases, surface_vels, velmodel_csv, Zbool, damp_factor)
 
