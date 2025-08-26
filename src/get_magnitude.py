@@ -1,8 +1,6 @@
-# Program to visualize and store maximum horizontal amplitude in an earthquake seismogram 
-#
-# Example:
-# INSERT
-
+# Program to visualize maximum amplitudes and and compute local magnitudes
+# Averaged local magnitudes are saved in the data/eq-locations/all_eqlocations.csv. MLs for each station are saved in the input pick list
+# Earthquake locations must be computed and saved before running this file. 
 
 import argparse
 from constants import PICKLISTS_PATH, DATA_MSEED, STALOCS_PATH, METADATA_PATH, EQLOCS_PATH
@@ -15,11 +13,13 @@ import numpy as np
 from locate_utils import get_dists_azimuths
 
 def get_mL_centralUS(r,max_amp,S):
+    # Function to compute local magnitude for the Central United States (Miao and Langston, 2007)
     log_A = np.log10(max_amp)
     m_L = log_A + 0.939*np.log10(r/100) - 0.000276*(r-100) + 3.0 + S
     return m_L
 
 def get_mL_Norway(r,max_amp,S):
+    # Function to compute local magnitude for the Norway (Alsaker et al, 1991)
     a = 0.91
     b = 0.00087
     log_A = np.log10(max_amp)
@@ -27,15 +27,12 @@ def get_mL_Norway(r,max_amp,S):
     return m_L
 
 def get_mL_Norway_noWA(D,max_amp):
+    # Function to compute local magnitude for Norway using a Wood-Anderson approximation model (Alsaker et al, 1991)
     m_L = 0.925*np.log10(max_amp) + 0.91*np.log10(D) +0.00087*D -1.31
     return m_L
 
-def get_mL_Tanzania(r,max_amp,S):
-    log_A = np.log10(max_amp)
-    m_L = log_A + 0.776*np.log10(r/17) + 0.000902*(r-17) + 2.0 + S
-    return m_L
-
 def get_mL_Ethirift(r,max_amp,S):
+    # Function to compute local magnitude for Ethiopia within the rift area (Keir et al, 2006)
     log_A = np.log10(max_amp)
     m_L = log_A + 1.196997*np.log10(r/17) + 0.001066*(r-17) + 2 + S
     return m_L
@@ -135,10 +132,11 @@ if __name__ == '__main__':
 
         # store pick/event parameters and plot duration
         plot_start = UTCDateTime( df_picks.loc[i, 'event_start_utc'])-1
-        plot_end = UTCDateTime( df_picks.loc[i, 'event_end_utc'])
+        event_end = UTCDateTime( df_picks.loc[i, 'event_end_utc'])
         pick_confidence = df_picks.loc[i, 'pick_confidence']
-        event_duration = plot_end - plot_start
-        plot_duration = event_duration + (0.5*event_duration)
+        event_duration = event_end - plot_start
+        plot_duration = 3*event_duration
+        plot_end = plot_start + plot_duration
 
         # store pick amplitude for each component
         argmax_horizontal_list = []
@@ -171,9 +169,11 @@ if __name__ == '__main__':
         # filter, convert to velocity, and simulate Wood Anderson response for ML Method 1
         st_fullWA = st_raw.copy()
         st_fullWA = st_fullWA.detrend('linear')
+        gain_dict = dict()     #dictionary to store stage zero sensitivities for each channel for ML Method 2
         for chan in chan_list:
             tr = st_fullWA.select(channel=chan)[0]
             response = inv.get_response(f"{net}.{sta}.{loc}.{chan}", st_raw[0].stats.starttime)
+            gain_dict[chan] = response.instrument_sensitivity.value
             response, freqs = response.get_evalresp_response(t_samp, npts_st, output="VEL")
             response[0] = 1
             tr_fft = np.fft.rfft(tr.data, npts_st)
@@ -185,10 +185,10 @@ if __name__ == '__main__':
         # store a stream object that is only gain corrected for ML Method 2
         st_gaincorrec = st_raw.copy()
         for st_i in range(3):
-            sensitivity = st_gaincorrec[st_i].stats.response.instrument_sensitivity.value
-            #print(st[st_i].stats.channel, 'sensitivity', sensitivity)
-            st_gaincorrec[st_i].data = st_gaincorrec[st_i].data/sensitivity
+            chan = st_gaincorrec[st_i].stats.channel
+            st_gaincorrec[st_i].data = st_gaincorrec[st_i].data/gain_dict[chan]
 
+        # rotate both stream objects (ML Methods 1 and 2) to components ZRT
         for stream in [st_fullWA, st_gaincorrec]:
             stream.rotate(method='->ZNE', inventory=inv)
             stream.rotate(method='NE->RT', back_azimuth=az)
@@ -226,6 +226,7 @@ if __name__ == '__main__':
         print('Local magnitude with zero station correction (Norway, WA approx):', ml_Norway_WAapprox)
         print('')
 
+        # plot Z and T components with maximum amplitudes (ML Method 1 only)
         if args.plot:
             fig, ax = plt.subplots(2,1)
             ax[0].set_title(net_sta)
@@ -266,6 +267,9 @@ if __name__ == '__main__':
     df_eqlocations.loc[eqmatch_idx, 'ML_Ethiopianrift_std'] = ml_Ethiopianrift_std
     df_eqlocations.loc[eqmatch_idx, 'ML_Norway_WAapprox_std'] = ml_Norway_WAapprox_std
     df_eqlocations.to_csv(EQLOCS_PATH / 'all_eqlocations.csv', index=False)
+    print('Averaged Local Magnitude (Norway):', ml_Norway_WAsim_avg )
+    print('Averaged Local Magnitude (Ethiopia):', ml_Ethiopianrift_avg)
+    print('Averaged Local Magnitude (Norway, WA approx):', ml_Norway_WAapprox_avg)
 
 
 
