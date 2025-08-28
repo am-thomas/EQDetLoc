@@ -37,6 +37,12 @@ def get_mL_Ethirift(r,max_amp,S):
     m_L = log_A + 1.196997*np.log10(r/17) + 0.001066*(r-17) + 2 + S
     return m_L
 
+def get_mL_Tanzania(r,max_amp,S):
+    # Function to compute local magnitude for Tanzania (Langston et al, 1998)
+    log_A = np.log10(max_amp)
+    m_L = log_A + 0.776*np.log10(r/17) + 0.000902*(r-17) + 2.0 + S
+    return m_L
+
 # Transfer properties for Wood-Anderson instrument response
 # Sensitivity is 2080 according to:
 # Bormann, P. (ed.) (2002). IASPEI New Manual of Seismological Observatory
@@ -215,8 +221,9 @@ if __name__ == '__main__':
         A_mm_WAsimulated = A_m_WAsimulated * 1e3
         ml_Norway_WAsim = get_mL_Norway(hdist_km, A_mm_WAsimulated,0)
         ml_Ethiopianrift = get_mL_Ethirift(hdist_km, A_mm_WAsimulated,0)
+        ml_Tanzania = get_mL_Tanzania(hdist_km, A_mm_WAsimulated,0)
         print('Local magnitude with zero station correction (Norway):', ml_Norway_WAsim)
-        # print('Local magnitude with zero station correction (Tanzania):', get_mL_Tanzania(hdist_km, A_mm_WAsimulated,0))
+        print('Local magnitude with zero station correction (Tanzania):', ml_Tanzania)
         print('Local magnitude with zero station correction (Ethiopian rift):', ml_Ethiopianrift)
 
         # print('Method 2: Approximated Wood Anderson')
@@ -246,6 +253,7 @@ if __name__ == '__main__':
         df_picks.loc[i, 'max_hamp_WAapprox_m'] = A_m_gaincorrec
         df_picks.loc[i, 'ML_Norway_WAsim'] = ml_Norway_WAsim
         df_picks.loc[i, 'ML_EthiopianRift'] = ml_Ethiopianrift
+        df_picks.loc[i, 'ML_Tanzania'] = ml_Tanzania
         df_picks.loc[i, 'ML_Norway_WAapprox'] = ml_Norway_WAapprox
 
         prev_netsta = net_sta
@@ -258,17 +266,23 @@ if __name__ == '__main__':
     ml_Norway_WAsim_std = df_picks["ML_Norway_WAsim"].std()
     ml_Ethiopianrift_avg = df_picks["ML_EthiopianRift"].mean()  
     ml_Ethiopianrift_std = df_picks["ML_EthiopianRift"].std()
+    ml_Tanzania_avg = df_picks["ML_Tanzania"].mean()  
+    ml_Tanzania_std = df_picks["ML_Tanzania"].std()
     ml_Norway_WAapprox_avg = df_picks["ML_Norway_WAapprox"].mean()  
     ml_Norway_WAapprox_std = df_picks["ML_Norway_WAapprox"].std()
+    
     df_eqlocations.loc[eqmatch_idx, 'ML_Norway_WAsim'] = ml_Norway_WAsim_avg
     df_eqlocations.loc[eqmatch_idx, 'ML_Ethiopianrift'] = ml_Ethiopianrift_avg
+    df_eqlocations.loc[eqmatch_idx, 'ML_Tanzania'] = ml_Tanzania_avg
     df_eqlocations.loc[eqmatch_idx, 'ML_Norway_WAapprox'] = ml_Norway_WAapprox_avg
     df_eqlocations.loc[eqmatch_idx, 'ML_Norway_WAsim_std'] = ml_Norway_WAsim_std
     df_eqlocations.loc[eqmatch_idx, 'ML_Ethiopianrift_std'] = ml_Ethiopianrift_std
+    df_eqlocations.loc[eqmatch_idx, 'ML_Tanzania_std'] = ml_Tanzania_std
     df_eqlocations.loc[eqmatch_idx, 'ML_Norway_WAapprox_std'] = ml_Norway_WAapprox_std
     df_eqlocations.to_csv(EQLOCS_PATH / 'all_eqlocations.csv', index=False)
     print('Averaged Local Magnitude (Norway):', ml_Norway_WAsim_avg )
     print('Averaged Local Magnitude (Ethiopia):', ml_Ethiopianrift_avg)
+    print('Averaged Local Magnitude (Tanzania):', ml_Tanzania_avg)
     print('Averaged Local Magnitude (Norway, WA approx):', ml_Norway_WAapprox_avg)
 
 
