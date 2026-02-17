@@ -92,7 +92,15 @@ if __name__ == '__main__':
         net = net_sta_split[0]
         sta = net_sta_split[1]
 
-        row = stalocs_df.loc[(stalocs_df['network'] == net) & (stalocs_df['station'] == sta)].squeeze()
+        row = stalocs_df.loc[(stalocs_df['network'] == net) & (stalocs_df['station'] == sta)]
+        # choose the correct row if there are multiple rows for the same network and station
+        if len(row) == 1:
+            row = row.iloc[0]
+        elif len(row) > 1:
+            picklist_time = args.csv[9:19] + 'T' + args.csv[20:30].replace('-', ':')
+            picklist_time = UTCDateTime(picklist_time)
+            rows_time = row.loc[(row['start_time'] <= picklist_time) & (row['end_time'] >= picklist_time)]
+            row = rows_time.iloc[0]
         loc = row['location']
         samp_rate = row['samp_rate']
         chan_list = row['chan_list']
@@ -172,7 +180,10 @@ if __name__ == '__main__':
         WAresponse, freqs = paz_to_freq_resp(WOODANDERSON['poles'], WOODANDERSON['zeros'],
                                             WOODANDERSON['gain'], t_samp, npts_st, freq=True)
         inv = read_inventory(METADATA_PATH / f'{net}.{sta}.xml')
-        pre_filt = [0.018, 0.03, 16, 19.99]
+        if samp_rate == 40:
+            pre_filt = [0.018, 0.03, 16, 19.99]
+        elif samp_rate == 20:
+            pre_filt = [0.018, 0.03, 8, 9.99]
         freq_domain_taper = cosine_sac_taper(freqs, flimit=pre_filt)
         
         # filter, convert to velocity, and simulate Wood Anderson response for ML Method 1
