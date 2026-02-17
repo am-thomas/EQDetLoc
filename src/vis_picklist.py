@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser() 
 
     # csv parameters
-    parser.add_argument("--exp_name", default='test', type=str,
+    parser.add_argument("--exp_name", default='test/202212', type=str,
                         help='folder (under data/picks-list) that contains the desired pick list csv')
     parser.add_argument("--csv", required=True, type=str,
                         help='name of csv (e.g. picklist_2024-07-15T08-00-00) that contains the desired picks')
@@ -82,8 +82,8 @@ if __name__ == '__main__':
         pick_confidence = df_picks.loc[i, 'pick_confidence']
 
         # set plot to start 5 seconds before and after the event
-        plot_start = event_start_utc - 5
-        plot_end = event_end_utc + 5
+        plot_start = event_start_utc - 100
+        plot_end = event_end_utc + 200
         duration = plot_end - plot_start
         pick_time_rel = UTCDateTime(pick_time.split('+')[0]) - plot_start
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
             fig, ax = plt.subplots(3,1)
         for j, chan in enumerate(chan_list):
             if args.datadirect:
-                st_1c = read(DATA_MSEED/ sta / f'{sta}.{net}.{loc}.{chan}.{plot_start.year}.{plot_start.julday}', format='MSEED')
+                st_1c = read(DATA_MSEED/ sta / f'{sta}.{net}.{loc}.{chan}.{plot_start.year}.{plot_start.julday:03d}', format='MSEED')
                 st_1c.trim(starttime=plot_start, endtime=plot_end)
             else:
                 st_1c = get_rawdata(net, sta, loc, chan, str(plot_start), duration, samp_rate=samp_rate)
@@ -128,7 +128,7 @@ if __name__ == '__main__':
         plt.show()
 
         # plot filtered waveforms
-        st_3c.filter('bandpass', freqmin=0.5, freqmax=5, zerophase=True)
+        st_3c.filter('bandpass', freqmin=1.0, freqmax=5, zerophase=True)
         fig, ax = plt.subplots(3,1)
         for j, chan in enumerate(chan_list):
             ax[j].plot(times, st_3c.select(channel=chan)[0].data, color='black', label=chan)
@@ -137,14 +137,10 @@ if __name__ == '__main__':
             ax[j].legend(loc='upper left')
         ax[1].set_ylabel('Counts')
         ax[2].set_xlabel('Time [s]')
-        ax[0].set_title(f'0.5 - 5 Hz Filtered\n{sta} {phase} pick, plot start: {str(plot_start)[:23]},\n duration: {duration} s, confidence: {pick_confidence:.3f}', fontsize=12)
+        ax[0].set_title(f'1.0 - 5 Hz Filtered\n{sta} {phase} pick, plot start: {str(plot_start)[:23]},\n duration: {duration} s, confidence: {pick_confidence:.3f}', fontsize=12)
         plt.tight_layout()
         plt.show()
 
     # save pick list with amplitudes
     df_picks.to_csv(PICKLISTS_PATH / args.exp_name / f'{args.csv}.csv', index=False)
 
-
-
-
-    
