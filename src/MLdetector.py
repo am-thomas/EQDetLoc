@@ -72,7 +72,7 @@ def detect_signals(args):
                 # retrieve directly from mseed files in folder constants.DATA_MSEED (specific to local computer)  
                 if args.datadirect:
                     julday = start.julday
-                    julday_str = f'{julday}' if julday >= 100 else f'0{julday}'
+                    julday_str = f"{julday:03d}"
                     st_1c = read(DATA_MSEED/ args.sta / f'{args.sta}.{args.net}.{args.loc}.{chan}.{start.year}.{julday_str}', format='MSEED')
                 else: # function to check for locally saved data and retrieve from EarthScope Web Services if it does not exist 
                     st_1c = utils_process.get_rawdata(args.net, args.sta, args.loc, chan, start_ext_str, duration_ext, args.samp_rate, plot_wave=False, save=False)
