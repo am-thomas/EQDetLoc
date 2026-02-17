@@ -123,7 +123,7 @@ if __name__ == '__main__':
         samp_rate = sta_params[2]
         sta_lat = sta_params[3]
         sta_lon = sta_params[4]
-        sta_depth_km = sta_params[4]/1000
+        sta_depth_km = sta_params[5]/1000
 
         # get distance and azimuth
         delta, az = get_dists_azimuths(eq_lat, eq_lon, [sta_lat], [sta_lon])
@@ -151,11 +151,14 @@ if __name__ == '__main__':
 
             # get raw data
             if args.datadirect:
-                st_1c = read(DATA_MSEED/ sta / f'{sta}.{net}.{loc}.{chan}.{plot_start.year}.{plot_start.julday}', format='MSEED')
+                # Julian day from plot_start, zero-padded to 3 digits (e.g., 1 -> "001")
+                julday_str = f"{plot_start.julday:03d}"
+                st_1c = read(DATA_MSEED/ sta / f'{sta}.{net}.{loc}.{chan}.{plot_start.year}.{julday_str}', format='MSEED')
                 st_1c.trim(starttime=plot_start, endtime=plot_end)
+                print("raw data", sta)
             else:
                 st_1c = get_rawdata(net, sta, loc, chan, str(plot_start), plot_duration, samp_rate=samp_rate)
-            
+                print("iris webservices", sta)
             times = st_1c[0].times()
 
             if j == 0:
