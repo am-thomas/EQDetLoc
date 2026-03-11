@@ -48,10 +48,18 @@ if __name__ == '__main__':
         net = net_sta_split[0]
         sta = net_sta_split[1]
 
-        row = stalocs_df[(stalocs_df['network'] == net) & (stalocs_df['station'] == sta)]
-        loc = row['location'].tolist()[0]
-        samp_rate = row['samp_rate'].tolist()[0]
-        chan_list = row['chan_list'].tolist()[0]
+        row = stalocs_df.loc[(stalocs_df['network'] == net) & (stalocs_df['station'] == sta)]
+        # choose the correct row if there are multiple rows for the same network and station
+        if len(row) == 1:
+            row = row.iloc[0]
+        elif len(row) > 1:
+            picklist_time = args.csv[9:19] + 'T' + args.csv[20:30].replace('-', ':')
+            picklist_time = UTCDateTime(picklist_time)
+            rows_time = row.loc[(row['start_time'] <= picklist_time) & (row['end_time'] >= picklist_time)]
+            row = rows_time.iloc[0]
+        loc = row['location']
+        samp_rate = row['samp_rate']
+        chan_list = row['chan_list']
         sta_dict[net_sta] = [loc, chan_list, samp_rate]
 
     df_picks['chan_list'] = np.zeros(len_picks, dtype=str)
